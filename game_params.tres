@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="GameParams" format=3 uid="uid://cutnjukiqrgu5"]
+
+[ext_resource type="Script" uid="uid://gejhvet8mraq" path="res://game_params.gd" id="1_8qtev"]
+
+[resource]
+script = ExtResource("1_8qtev")
+player_scale = 0.1
+model_yaw_offset = 180.0

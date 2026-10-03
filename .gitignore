@@ -1,0 +1,20 @@
+# Godot editor cache (regenerated on import)
+.godot/
+
+# Blendot's generated export cache
+.blendot/
+
+# Blender auto-backups
+*.blend1
+*.blend2
+
+# Godot export output
+/build/
+/export/
+*.translation
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+*.swp
+*~

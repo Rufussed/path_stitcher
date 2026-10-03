@@ -1,0 +1,32 @@
+[gd_resource type="AnimationNodeBlendTree" format=3 uid="uid://bc4lfjpjkfhk3"]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_ffvgr"]
+animation = &"kick"
+
+[sub_resource type="AnimationNodeOneShot" id="AnimationNodeOneShot_duuvu"]
+fadein_time = 0.5
+fadeout_time = 0.5
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_2ae2k"]
+animation = &"kick"
+
+[sub_resource type="AnimationNodeOneShot" id="AnimationNodeOneShot_3uoqt"]
+fadein_time = 0.5
+fadeout_time = 0.5
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_o1rav"]
+animation = &"skate"
+
+[resource]
+nodes/output/position = Vector2(780, 40)
+nodes/skate/node = SubResource("AnimationNodeAnimation_o1rav")
+nodes/skate/position = Vector2(0, 0)
+nodes/kick_a/node = SubResource("AnimationNodeAnimation_ffvgr")
+nodes/kick_a/position = Vector2(40, 220)
+nodes/kick_a_shot/node = SubResource("AnimationNodeOneShot_duuvu")
+nodes/kick_a_shot/position = Vector2(260, 40)
+nodes/kick_b/node = SubResource("AnimationNodeAnimation_2ae2k")
+nodes/kick_b/position = Vector2(300, 220)
+nodes/kick_b_shot/node = SubResource("AnimationNodeOneShot_3uoqt")
+nodes/kick_b_shot/position = Vector2(520, 40)
+node_connections = [&"output", 0, &"kick_b_shot", &"kick_a_shot", 0, &"skate", &"kick_a_shot", 1, &"kick_a", &"kick_b_shot", 0, &"kick_a_shot", &"kick_b_shot", 1, &"kick_b"]

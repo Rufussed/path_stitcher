@@ -1,0 +1,240 @@
+# Working with GodotLiveMCP in this project
+
+This project has the GodotLiveMCP bridge addon enabled — the Godot editor
+is live and reachable through MCP tools while it's open. A few things that
+make this work well, learned from real use:
+
+## Work in the editor like a person would — don't write project files
+
+While the editor is open, make every change through the live tools, the
+way a person working in Godot would:
+
+- **Scenes** (`.tscn`): use the bridge tools (`add_node_live`,
+  `set_property`, `attach_script`, ...). Never rewrite a `.tscn` on disk —
+  the editor holds its own copy, the user gets a "reload from disk?"
+  prompt, and whichever copy loses is gone.
+- **Scripts and shaders** (`.gd`, `.gdshader`): use `edit_script_text`
+  (full new text; it also creates new files) and `get_script_text` to read
+  one — not Read/Write/Edit on the file. It edits the text inside Godot's
+  own script/shader editor as one undoable change, so there's no reload
+  prompt and the user can Ctrl+Z it. `get_script_text` also sees unsaved
+  edits that the file on disk doesn't have yet.
+
+Edits stay in memory (the tabs show as unsaved) until saved — see below.
+Pressing Play (`play_scene`) saves everything first, like it does for a
+person.
+
+**While a game is running from the editor**, changes made this way also
+show up in the game live (Godot's Debug > Synchronize Scene/Script
+Changes): property changes, `add_node_live` (including `scene_path` to add
+an instance of a saved `.tscn`), `remove_node`, `rename_node`,
+`reparent_node`, `duplicate_node`, `add_mesh_instance`, `setup_collision`,
+animation edits (`add_animation_track`, `set_animation_track_path`,
+`set_animation_keys`), and `edit_script_text` (which then saves
+the script right away and reloads it in the game). Changes made with
+`run_script`/`eval_expression` on the editor's scene do **not** reach a
+running game — use the structured tools instead while it's running.
+
+Textures, meshes and other resources reach a running game only if they're
+**files** (Godot sends the game a file path, not the data). To apply a
+generated texture live: save it as a file with `save_resource_file` (a
+GDScript body that returns the `Image` or resource; it also imports it),
+then assign it with a structured tool — `set_material_3d` / `set_nested_property` /
+`set_property` with `"load:res://checker.png"`. An `ImageTexture` or
+material built in memory and assigned inside `run_script` only shows up on
+the next Play. Don't tell the user to restart the game for something these
+tools can do live.
+
+For edits across many nodes (e.g. "space these 100 balls out"), use
+`set_properties_multi` — different values per node, one Ctrl+Z, live-synced
+— or `batch_set_properties` for the same values on every matching node,
+not a `run_script` loop.
+
+A `run_script`/`eval_expression` result with a `scene_changed_note` means
+that code changed the scene directly — the user can't Ctrl+Z it and a
+running game won't see it. Tell the user, and use structured tools for
+scene edits from then on. (Reading and calculating with these tools is
+fine; only edits are the problem.)
+
+A tool result with a `live_note` means that change could **not** reach the
+running game (usually a brand-new material or other resource). Say so
+plainly — e.g. "this shows on the next Play; after that, colour changes to
+it will update live" — rather than implying it's visible now.
+
+## Saving
+
+Every `set_property`/`add_node_live`/etc. call changes the editor's
+**in-memory** scene, like a person's edits: the scene tab shows as unsaved
+(*) and Godot asks to save on close. Nothing reaches disk until it's saved.
+
+- Whether to save is the user's choice. Sessions started from the AI
+  Assistant panel carry a "Saving preference" in the system prompt —
+  follow it. Without one, save with `save_scene_live` after finishing
+  each meaningful step (not after every tweak), and always save if the
+  user asks.
+- `save_scene_live` saves the scene only. Script and shader tabs edited
+  with `edit_script_text` are saved when the user presses Ctrl+S or when
+  the scene is played (`play_scene`) — or right away while a game runs.
+
+## eval_expression vs. a structured tool
+
+- Prefer a structured tool when one exists for the operation — it's
+  schema-validated and usually cheaper in round trips than hand-writing
+  GDScript.
+- Use `eval_expression` for one-offs, reads, or anything reachable as a
+  single method call (no assignment, no loop needed) — GDScript's
+  `Expression` class can't parse assignment statements or run loops.
+- If the logic genuinely needs a `var` declaration, a loop, or more than
+  one statement, use `run_script` instead of fighting `Expression` by
+  inlining everything into one giant nested call chain — it compiles
+  `source` as the body of `func _run(node):` (reference the target node as
+  `node`, not `self`, and end with your own `return`). This was added
+  after a real session repeatedly hit `Invalid named index 'var' for base
+  type Object` from trying `"var r = ...; str(r...)"` in `eval_expression`
+  and had to fall back to one long inlined expression each time.
+- `eval_expression`/`run_script` both have direct access to
+  `ProjectSettings`, `ClassDB`, `Engine`, `Input`, `OS`, `Time`,
+  `Performance`, `AudioServer`, `ResourceLoader` (use `ResourceLoader.load(...)`; plain `load()` fails in Expression), `ResourceSaver`, and (in-editor) `EditorInterface` as bare
+  identifiers — no need to look up a dedicated tool for anything reachable
+  through those singletons in one call, e.g.
+  `ProjectSettings.get_setting("physics/2d/default_gravity")`.
+- A `run_script` runtime error partway through (as opposed to a compile
+  error) isn't caught — you get back `null` with no indication anything
+  went wrong; check `get_debug_output` if a result looks suspiciously empty.
+
+## Parameter names are validated — don't guess
+
+Every bridge/runtime tool now rejects a call that includes a parameter name
+its schema doesn't declare (e.g. `path` instead of `node_path`, `property`
+instead of `property_name`) with an explicit "unknown parameter(s)" error,
+rather than silently ignoring the unrecognized key and falling back to a
+default. This was added after a real cross-client session (a different MCP
+client than the one that established this project's conventions) guessed
+plausible-but-wrong names and got back `ok: true` describing the *wrong*
+node with no indication anything was off. If you hit this error, it's
+telling you the exact expected parameter names — use those, don't retry
+with another guess.
+
+## Filesystem scan after creating a script externally
+
+`edit_script_text` registers new files with the editor itself. Only if you
+did create a new `.gd` file directly (via a file-write tool, not
+`attach_script`) and then immediately call `attach_script`/`validate_script`
+referencing it, Godot's editor filesystem cache may not have picked it up
+yet — you'll get `script not found` even though the file is clearly there.
+Call `eval_expression`'s `EditorInterface.get_resource_filesystem().scan()`
+first, or between the write and the reference, rather than retrying the
+same call and hoping.
+
+## Verify property changes, don't trust ok:true blindly
+
+`set_property`/`set_properties` and every resource-configuring tool
+(`setup_collision`, `set_material_3d`, `setup_environment`,
+`set_physics_material`, `set_theme_stylebox_override`,
+`add_audio_bus_effect`, `set_particle_material`) validate property names
+and return a readback of what was actually applied — trust that readback,
+not just `ok: true`. If a property name is wrong, the call now fails
+loudly with "unknown property/properties: ..." rather than silently doing
+nothing (this was a real bug: an agent recolored a sphere with the wrong
+property name, got `ok: true`, and nothing changed).
+
+To assign an *existing* texture or resource file (not a freshly-created
+one), use a value of the form `"load:res://path/to/file"` — this resolves
+via `load()` instead of trying to parse the string as a Variant literal,
+e.g. `{"albedo_texture": "load:res://player_skin.png"}`.
+
+**Use `set_nested_property` for a colon-path property name** like
+`"material_override:albedo_color"` — `set_property`/`set_properties`
+treat a colon-path as one literal (unknown) property name and will fail,
+but `set_nested_property` walks it correctly, including through Array
+indices and Dictionary keys (`"items:0:color"`, `"presets:default:radius"`).
+If an intermediate resource doesn't exist yet, create it first with
+`set_resource_property`.
+
+## Live running-game control (if `runtime_bridge.gd` is set up)
+
+If the project has `runtime_bridge.gd` added as an Autoload (check
+Project Settings > Autoload, or just try a `game_*` tool), a running game
+instance is reachable too — a genuinely separate process from the editor,
+with its own tool set: `game_eval_expression`, `game_list_scene_tree`,
+`game_get_node_properties`, `game_set_property`/`game_set_properties`,
+`get_game_screenshot`, `simulate_key`/`simulate_mouse_button`/
+`simulate_mouse_motion`, and `wait_for_game_condition` (polls a boolean
+expression once per frame instead of one round trip per frame — use this
+instead of manually looping `game_eval_expression` calls).
+
+- Prefer `play_scene`/`stop_scene` over godot-mcp's inherited
+  `run_project` — the latter spawns a separate CLI process this MCP
+  server owns directly, which proved unreliable in practice (the process
+  can vanish mid-session with no crash trace). `play_scene`/`stop_scene`
+  reuse the editor's own Play/Stop mechanism instead.
+
+- After `play_scene`, or whenever something seems wrong, call
+  `get_output_log` instead of asking the user to copy errors across. It
+  returns the Output panel's recent lines (game `print()` output
+  included), the Debugger's game errors/warnings with file:line, where the
+  game is paused after a script error (`stop_scene` to end it), and the
+  editor's own errors.
+- Editor tools (`eval_expression`, `set_property`, ...) and runtime tools
+  (`game_*`) target genuinely separate processes with independent state —
+  a `set_property` call is not the same operation as `game_set_property`,
+  and `game_get_node_properties` won't reflect a change made the other way.
+- **However**: if a debug session is connected (the normal case right
+  after pressing Play, or after `play_scene`), Godot has its own built-in
+  one-way live-sync that mirrors editor scene edits into the connected
+  running instance in real time — confirmed live: an editor-tool property
+  change showed up immediately in an already-running game, while still
+  being a genuine edit to the *editor's own* scene (undo-tracked, and
+  persists via `save_scene_live`/a manual save), unlike a true
+  runtime-only mutation via `game_set_property`. This is Godot's own
+  debug-sync feature, not something this bridge controls: it only flows
+  editor → game (a `game_set_property` change does not appear in the
+  editor), only works while that specific debug session stays connected,
+  and structural changes (adding/removing nodes) may not sync as reliably
+  as simple property edits. If you're not sure whether a change actually
+  landed on the editor's scene (versus only the running game), check via
+  an editor tool (`get_node_properties`), not `game_get_node_properties` —
+  the sync is one-way, so only the editor side is the source of truth for
+  what will actually persist.
+- Runtime property mutations made via `game_set_property`/etc. (as
+  opposed to an editor edit that happens to sync into the game) are NOT
+  undo-tracked (no `EditorUndoRedoManager` at runtime) and are never
+  persisted to the scene file — they're ephemeral, live only as long as
+  that game instance keeps running.
+
+## Bracket steps with log_intent / log_result
+
+Only when the `log_intent` / `log_result` tools are available: they exist
+only if the user opted in to usage-data collection. If they aren't in your
+tool list, skip this section entirely and never mention tool-candidate
+review.
+
+Every tool call is then logged (see the main GodotLiveMCP README's
+"Self-improvement loop" section) for later review, but a raw pile of
+tool_call entries with no record of *why* they happened is hard to review
+usefully. Call `log_intent` with a one-sentence summary before the calls
+for one conceptually distinct step (including each sub-step of a larger
+request that naturally decomposes into several — not once per trivial
+follow-up within the same step), then `log_result` once that step's calls
+are done, describing what actually happened. The call/error count for
+that step is recorded automatically on the result entry — don't count it
+yourself, just describe the outcome. This is what makes a later
+`/review-tool-candidates` pass accurate instead of guesswork reconstructed
+from timestamps.
+
+`log_result`'s response includes `pending_review_ready: true` whenever a
+tool-candidate batch is waiting. A background server process has no way
+to surface this on its own — mention it to the user when it comes up
+(e.g. "there's a tool-candidate batch ready whenever you want to look"),
+rather than noticing it and staying silent. Don't proactively run the
+review yourself; just offer it, same as everything else in that skill —
+nothing about reviewing or building from usage data happens without the
+user saying so.
+
+## Self-improvement rule
+
+If a request required falling back to `eval_expression` for something the
+structured tools don't cover, and the pattern looks likely to recur (not a
+one-off), say so and suggest promoting it into a dedicated tool in
+GodotLiveMCP — don't build it silently into this project, and don't ask
+after every single prompt, only when a repeatable gap is actually observed.
