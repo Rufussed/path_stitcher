@@ -166,16 +166,16 @@ Building blocks are Resources, stored inside the scene (or saved as a `.tres` an
 | | `overlap` (float) | Built-in overlap at each end (Block1: 0.5 m, giving 5 m from a 6 m mesh) |
 | | `offset_py`, `offset_pz` (float) | Per-block offset: py raises or lowers the block, pz shifts it sideways (+ = left of travel) |
 | `PathPatternEntry` | `module` (PathModule), `count` (int ≥ 1) | One row of the block sequence: `count` copies in a row, or the block's weight in random mode |
-| `PathSequence` | `start` (PathModule, optional) | First block, placed once at the path start |
+| `PathSequence` | `start` (PathModule, optional), `start_count` (int ≥ 1) | First block, placed `start_count` times at the path start |
 | | `pattern` (Array of PathPatternEntry) | The block sequence, repeated to fill the path |
 | | `mode` (PATTERN / RANDOM) | Repeat in order, or draw at random using each row's count as its weight |
-| | `end` (PathModule, optional), `anchor_end` | Last block, placed once at the path end |
+| | `end` (PathModule, optional), `end_count` (int ≥ 1), `anchor_end` | Last block, placed `end_count` times at the path end |
 | | `fit` (enum) | How the blocks meet the end exactly (below) |
 | | `pattern_offset` (int) | Start the pattern part-way through, so neighbouring paths can continue each other's rhythm |
 | | `random_seed`, `max_repeat` | RANDOM mode: the seed, and the longest run of one block |
 | | `markers`, `marker_snap` | Blocks at specific distances (below) |
 
-`PathStitcher.sequence` holds the `PathSequence`. A per-block `up_mode` / `flip_side` override is planned.
+`PathStitcher.sequence` holds the `PathSequence`. When a PathStitcher is added as a child of a `Path3D`, its `path_node` is auto-assigned to `..` (an empty `path_node` also falls back to the parent path). A per-block `up_mode` / `flip_side` override is planned.
 
 ### Layout along the path
 
@@ -232,31 +232,32 @@ The path is split at markers into segments: start → marker 1 → … → end. 
 
 ### Inspector workflow (everything via the GUI)
 
-All setup happens in the BUILDING BLOCKS section at the top of a PathStitcher's Inspector, drawn by the **PathStitcher Inspector** editor plugin (`res://addons/path_stitcher/`). Godot's standard Inspector can only show lists of resources as nested sub-inspectors, so the plugin draws compact rows instead.
+All setup happens in the **BUILDING BLOCK SEQUENCE** box at the top of a PathStitcher's Inspector, drawn by the **PathStitcher Inspector** editor plugin (`res://addons/path_stitcher/`). Godot's standard Inspector can only show lists of resources as nested sub-inspectors, so the plugin draws compact one-line rows instead. Each section sits in the editor's standard sub-inspector box.
 
 ```
-BUILDING BLOCKS
-  First block   [ (none) ................ ]  >
-  Last block    [ (none) ................ ]  >
-                [ ] Anchor Last block to end of path
-  Block sequence                                  [ ] Randomize
-    ≡  [ Block1.blend ............ ]  ×[ 1 ]  >  x
-    ≡  [ Block2.blend ............ ]  ×[ 2 ]  v  x
-         Length (px) [ 0.00 m ]  Overlap [ 0.50 m ]
-         Offset py   [ 0.00 m ]  Offset pz [ 0.00 m ]
-         Auto length 5.00 m (mesh extent minus overlap)
-    [ + Add block ]
-  Fit           [ Stretch v ]       (Randomize on: Seed [ 1 ]  Max repeat [ 3 ])
-  ------------------------------------------------------------------
-MARKERS
-  [ Gate.blend ] at [ 300.0 m ]  x
-  [ + Add marker ] [ Add marker here ]
-  Snap          [ Exact v ]
++- BUILDING BLOCK SEQUENCE ------------------ [ ] Randomize -+
+|  First  [ StartBlock.blend ..... v ]  ×[ 2 ]  >           |
+|   ≡     [ Block1.blend ......... v ]  ×[ 4 ]  >   (trash) |
+|   ≡     [ Block2.blend ......... v ]  ×[ 2 ]  v   (trash) |
+|           Length (px) [ 0.00 m ]  Overlap [ 0.50 m ]       |
+|           Offset py   [ 0.00 m ]  Offset pz [ 0.00 m ]     |
+|           Auto length 5.00 m (mesh extent minus overlap)   |
+|         [ <empty> .............. v ]  ×[ 1 ] (faded)       |
+|  Last   [ EndBlock.blend ....... v ]  ×[ 3 ]  >           |
+|         [ ] Anchor Last block to end of path               |
+|  Fit    [ Stretch v ]     (Randomize on: Seed, Max repeat) |
++------------------------------------------------------------+
++- MARKERS -------------------------------------------------+
+|  [ Gate.blend ] at [ 300.0 m ]  (trash)                    |
+|  [ + Add marker ] [ Add marker here ]    Snap [ Exact v ]  |
++------------------------------------------------------------+
 ```
 
-- **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a scene picker (Quick Load, Load, Clear, or drag a `.blend` / `.glb` / `.tscn` from the FileSystem dock onto it), the repeat count (a weight when Randomize is on), an expander (>) for that block's length, overlap and offset, and a remove button.
-- **Dropping files:** drag `.blend` / `.glb` / `.gltf` / `.tscn` files from the FileSystem dock onto the **Add block** button to add one row per file (one undo step), onto a row's picker to replace that row's scene, or onto the First / Last block pickers to set them. Dragging nodes from the Scene dock is not supported.
-- **First / Last block:** the same picker and expander; **Anchor Last block to end of path** (its own line under the Last block) pins the last block to the path end.
+- **One column layout:** First, Last and every block row share the same columns (label or grip, scene box, multiplier, expander, remove), so the scene boxes line up.
+- **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a compact scene picker (shows the file name; Quick Load, Load, Clear, Show in FileSystem, or drag a `.blend` / `.glb` / `.gltf` / `.tscn` from the FileSystem dock onto it), the multiplier (`×N` copies; a weight when Randomize is on), an expander (>) for that block's length, overlap and offset, and a remove button. The picker is a custom control because Godot's resource picker shows a large thumbnail for scenes.
+- **First / Last multipliers:** `PathSequence.start_count` and `end_count` (min 1) repeat the first or last block, for example three end caps. With Anchor on, the repeated last blocks are all placed unstretched against the path end.
+- **Empty slot instead of an Add button:** the list always ends with an empty picker. Choosing a scene in it, or dropping scene files on it (several files add one row each, one undo step), turns it into a block row and a new empty slot appears below. Dropping on a filled row's picker replaces that row's scene. Dragging nodes from the Scene dock is not supported.
+- **First / Last block:** the same picker and expander; **Anchor Last block to end of path** (its own line under the Last row) pins the last block to the path end.
 - **Randomize:** one toggle switches the sequence to a weighted draw and reveals Seed and Max repeat.
 - **Markers:** rows of block and distance, plus **Add marker here**, which drops a `PathMarker` node on the path at the point closest to the editor camera (it snaps to the path as it is dragged; its block is set in its own Inspector).
 - **Undo:** every edit is one undoable editor action, with merging for repeated edits to the same field.

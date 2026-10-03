@@ -13,7 +13,7 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 
 @export_group("Ends")
 
-## Placed once at the start of the path.
+## Placed at the start of the path.
 @export var start: PathModule:
 	set(value):
 		_unwatch(start)
@@ -21,12 +21,24 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 		_watch(start)
 		emit_changed()
 
-## Placed once at the end of the path.
+## How many copies of the first block sit at the start.
+@export_range(1, 1000, 1, "or_greater") var start_count := 1:
+	set(value):
+		start_count = maxi(value, 1)
+		emit_changed()
+
+## Placed at the end of the path.
 @export var end: PathModule:
 	set(value):
 		_unwatch(end)
 		end = value
 		_watch(end)
+		emit_changed()
+
+## How many copies of the last block sit at the end.
+@export_range(1, 1000, 1, "or_greater") var end_count := 1:
+	set(value):
+		end_count = maxi(value, 1)
 		emit_changed()
 
 ## Place the last block exactly at the path end, unstretched; only the blocks

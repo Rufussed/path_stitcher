@@ -1,18 +1,27 @@
 @tool
 extends VBoxContainer
-## The BUILDING BLOCKS section of a PathStitcher's Inspector:
-##   First block / Last block (the Last block has an "Anchor to end of path"
-##   toggle on its own line),
-##   a reorderable block sequence (drag the handle; the number is the repeat
-##   count, or the weight when Randomize is on; drop scene files onto "Add
-##   block" to add them as rows), a small expander per block for
-##   length (px), overlap and offset (py, pz), the fit mode,
-##   and markers (a block at a path distance).
+## The BUILDING BLOCK SEQUENCE section of a PathStitcher's Inspector, in a box:
+##   a "First" row at the top, the reorderable block rows (drag the grip), an
+##   always-present empty slot at the end of the list (pick or drop scene files
+##   into it and it becomes a block, with a new empty slot below), a "Last" row
+##   with an "Anchor Last block to end of path" toggle, the fit mode, and
+##   Randomize (with seed and max repeat). Every row has a multiplier: a repeat
+##   count (a weight for the middle rows when Randomize is on) and an expander
+##   for that block's length (px), overlap and offset (py, pz).
+## A second box holds markers (a block at a path distance).
 ## Every edit is one undoable editor action.
+
+const ScenePicker := preload("res://addons/path_stitcher/scene_picker.gd")
 
 const FIT_NAMES := ["Stretch", "Truncate pattern", "Finish cycle", "None"]
 const SNAP_NAMES := ["Exact", "Nearest joint"]
-const LABEL_WIDTH := 84
+# Fixed widths, in editor-scale-1 pixels (scaled by _px so they hold on HiDPI).
+# HANDLE_WIDTH must be wider than the words "First" / "Last" so that every row's
+# scene box starts at the same position.
+const HANDLE_WIDTH := 48 # the grip / "First" / "Last" column
+const BUTTON_WIDTH := 34 # expander and remove columns (the icon buttons' own width)
+const COUNT_WIDTH := 40
+const DISTANCE_WIDTH := 55
 
 var _stitcher: PathStitcher
 var _ur: EditorUndoRedoManager
@@ -27,7 +36,7 @@ func setup(stitcher: Object) -> void:
 	_stitcher = stitcher as PathStitcher
 	_ur = EditorInterface.get_editor_undo_redo()
 	_ur.version_changed.connect(_on_history_changed)
-	add_theme_constant_override("separation", 6)
+	add_theme_constant_override("separation", int(_px(4)))
 	_build()
 
 
@@ -35,6 +44,11 @@ func _exit_tree() -> void:
 	if _ur and _ur.version_changed.is_connected(_on_history_changed):
 		_ur.version_changed.disconnect(_on_history_changed)
 	_watch(null)
+
+
+## A fixed size scaled for the editor's display scale.
+func _px(v: float) -> float:
+	return v * EditorInterface.get_editor_scale()
 
 
 # ------------------------------------------------------------------------------
@@ -50,82 +64,44 @@ func _build() -> void:
 	var seq := _stitcher.sequence
 	_watch(seq)
 
-	add_child(_header("BUILDING BLOCKS"))
 	if seq == null:
+		var empty := VBoxContainer.new()
+		empty.add_child(_header("BUILDING BLOCK SEQUENCE"))
 		var create := Button.new()
 		create.text = "Create building blocks"
 		create.pressed.connect(_create_sequence)
-		add_child(create)
+		empty.add_child(create)
+		add_child(_boxed(empty))
 		return
-	add_child(_end_block("First block", &"start"))
-	add_child(_end_block("Last block", &"end"))
-	add_child(_sequence_section())
-	add_child(HSeparator.new())
-	add_child(_markers_section())
+	add_child(_boxed(_sequence_box()))
+	add_child(_boxed(_markers_section()))
 
 
-func _end_block(title: String, prop: StringName) -> Control:
-	var seq := _stitcher.sequence
-	var pm: PathModule = seq.get(prop)
-	var box := VBoxContainer.new()
-	var row := HBoxContainer.new()
-	box.add_child(row)
-	var l := _label(title)
-	l.custom_minimum_size.x = LABEL_WIDTH
-	row.add_child(l)
-	row.add_child(_picker(pm.scene if pm else null, _on_end_scene.bind(prop)))
-	if pm:
-		row.add_child(_expander(String(prop)))
-	if prop == &"end":
-		var anchor_row := HBoxContainer.new()
-		var gap := Control.new()
-		gap.custom_minimum_size.x = LABEL_WIDTH
-		anchor_row.add_child(gap)
-		var anchor := CheckBox.new()
-		anchor.text = "Anchor Last block to end of path"
-		anchor.tooltip_text = "Place the Last block exactly at the end of the path, unstretched.\nOnly the blocks before it are fitted."
-		anchor.button_pressed = seq.anchor_end
-		anchor.toggled.connect(_on_anchor)
-		anchor_row.add_child(anchor)
-		box.add_child(anchor_row)
-	if pm and _expanded.get(String(prop), false):
-		box.add_child(_detail(pm))
-	return box
-
-
-func _sequence_section() -> Control:
+func _sequence_box() -> Control:
 	var seq := _stitcher.sequence
 	var random := seq.mode == PathSequence.Mode.RANDOM
 	var box := VBoxContainer.new()
 
 	var head := HBoxContainer.new()
-	var title := _label("Block sequence")
+	var title := _header("BUILDING BLOCK SEQUENCE")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
 	var rnd := CheckBox.new()
 	rnd.text = "Randomize"
-	rnd.tooltip_text = "Off: the blocks repeat in this order, each row repeated by its count.\nOn: blocks are drawn at random; each row's number is its weight."
+	rnd.tooltip_text = "Off: the blocks repeat in this order, each row repeated by its count.\nOn: blocks are drawn at random; each middle row's number is its weight."
 	rnd.button_pressed = random
 	rnd.toggled.connect(_on_randomize)
 	head.add_child(rnd)
 	box.add_child(head)
 
+	box.add_child(_end_row("First", &"start", &"start_count"))
 	for i in seq.pattern.size():
 		box.add_child(_block_row(i, random))
-
-	var add := _DropButton.new()
-	add.text = "Add block  (or drop scene files here)"
-	add.tooltip_text = "Click to add an empty row, or drag .blend / .glb / .gltf / .tscn files from the FileSystem dock onto this button to add each one as a block."
-	add.icon = _icon("Add")
-	add.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	add.pressed.connect(_add_block)
-	add.on_scenes = _add_blocks_from
-	box.add_child(add)
+	box.add_child(_empty_slot_row(random))
+	box.add_child(_end_row("Last", &"end", &"end_count"))
 
 	var fit_row := HBoxContainer.new()
-	var fl := _label("Fit")
-	fl.custom_minimum_size.x = LABEL_WIDTH
-	fit_row.add_child(fl)
+	fit_row.add_child(_column_label("Fit"))
 	var fit := _option(FIT_NAMES, seq.fit)
 	fit.tooltip_text = "How the blocks are made to fill the path exactly.\nStretch: whole blocks, all stretched slightly.\nTruncate pattern: as many whole blocks as fit, then stretched.\nFinish cycle: whole cycles of the sequence only.\nNone: no stretching; a gap may remain."
 	fit.item_selected.connect(_on_fit)
@@ -134,9 +110,7 @@ func _sequence_section() -> Control:
 
 	if random:
 		var r := HBoxContainer.new()
-		var sl := _label("Seed")
-		sl.custom_minimum_size.x = LABEL_WIDTH
-		r.add_child(sl)
+		r.add_child(_column_label("Seed"))
 		var seed_spin := _spin(seq.random_seed, -2147483648.0, 2147483647.0, 1.0)
 		seed_spin.value_changed.connect(_on_int.bind(seq, &"random_seed", "Set seed"))
 		r.add_child(seed_spin)
@@ -149,12 +123,47 @@ func _sequence_section() -> Control:
 	return box
 
 
+## The First / Last row: a label in the grip column, the scene picker, the
+## multiplier, and the expander. The Last row also carries the anchor toggle on
+## its own line underneath.
+func _end_row(title: String, prop: StringName, count_prop: StringName) -> Control:
+	var seq := _stitcher.sequence
+	var pm: PathModule = seq.get(prop)
+	var first := prop == &"start"
+	var box := VBoxContainer.new()
+	var row := HBoxContainer.new()
+	box.add_child(row)
+
+	row.add_child(_column_label(title))
+	row.add_child(_picker(pm.scene if pm else null, _on_end_scene.bind(prop)))
+	row.add_child(_count_spin(seq.get(count_prop), "×",
+			"How many copies of the %s block sit at the %s of the path." % ["first" if first else "last", "start" if first else "end"],
+			seq, count_prop, "Set %s block count" % ("first" if first else "last")))
+	if pm:
+		row.add_child(_expander(String(prop)))
+	else:
+		row.add_child(_spacer(BUTTON_WIDTH))
+	row.add_child(_spacer(BUTTON_WIDTH))
+
+	if not first:
+		var anchor_row := HBoxContainer.new()
+		anchor_row.add_child(_spacer(HANDLE_WIDTH))
+		var anchor := CheckBox.new()
+		anchor.text = "Anchor Last block to end of path"
+		anchor.tooltip_text = "Place the Last block exactly at the end of the path, unstretched.\nOnly the blocks before it are fitted."
+		anchor.button_pressed = seq.anchor_end
+		anchor.toggled.connect(_on_anchor)
+		anchor_row.add_child(anchor)
+		box.add_child(anchor_row)
+	if pm and _expanded.get(String(prop), false):
+		box.add_child(_detail(pm))
+	return box
+
+
 func _block_row(i: int, random: bool) -> Control:
 	var seq := _stitcher.sequence
 	var entry: PathPatternEntry = seq.pattern[i]
-	var panel := PanelContainer.new()
 	var v := VBoxContainer.new()
-	panel.add_child(v)
 	var row := HBoxContainer.new()
 	v.add_child(row)
 
@@ -162,30 +171,50 @@ func _block_row(i: int, random: bool) -> Control:
 	handle.kind = "block"
 	handle.index = i
 	handle.on_drop = _move_block
+	handle.custom_minimum_size.x = _px(HANDLE_WIDTH)
 	row.add_child(handle)
 	row.add_child(_picker(entry.module.scene if entry.module else null, _on_entry_scene.bind(entry)))
-
-	var count := _spin(entry.count, 1.0, 1000.0, 1.0)
-	count.prefix = "wt " if random else "×"
-	count.custom_minimum_size.x = 76
-	count.size_flags_horizontal = Control.SIZE_SHRINK_END
-	count.tooltip_text = "Weight: how often this block is picked." if random else "How many of this block in a row."
-	count.value_changed.connect(_on_int.bind(entry, &"count", "Set block count"))
-	row.add_child(count)
-
+	row.add_child(_count_spin(entry.count, "wt " if random else "×",
+			"Weight: how often this block is picked." if random else "How many of this block in a row.",
+			entry, &"count", "Set block count"))
 	row.add_child(_expander("b%d" % i))
 	var del := Button.new()
 	del.flat = true
 	del.icon = _icon("Remove")
 	if del.icon == null:
 		del.text = "x"
+	del.custom_minimum_size.x = _px(BUTTON_WIDTH)
 	del.tooltip_text = "Remove this block"
 	del.pressed.connect(_remove_block.bind(i))
 	row.add_child(del)
 
 	if entry.module and _expanded.get("b%d" % i, false):
 		v.add_child(_detail(entry.module))
-	return panel
+	return v
+
+
+## The empty slot at the end of the block list. Choosing a scene in it (or
+## dropping scene files on it) adds real block rows and a fresh empty slot
+## appears below them.
+func _empty_slot_row(random: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_child(_spacer(HANDLE_WIDTH))
+	var slot := ScenePicker.new()
+	slot.accept_multiple = true
+	slot.scene_changed.connect(_on_slot_scene)
+	slot.scenes_dropped.connect(_add_blocks_from)
+	row.add_child(slot)
+	# A faded, disabled multiplier keeps the columns lined up with the rows above.
+	var count := _spin(1, 1.0, 1000.0, 1.0)
+	count.prefix = "wt " if random else "×"
+	count.custom_minimum_size.x = _px(COUNT_WIDTH)
+	count.size_flags_horizontal = Control.SIZE_SHRINK_END
+	count.editable = false
+	count.modulate = Color(1, 1, 1, 0.4)
+	row.add_child(count)
+	row.add_child(_spacer(BUTTON_WIDTH))
+	row.add_child(_spacer(BUTTON_WIDTH))
+	return row
 
 
 func _markers_section() -> Control:
@@ -199,7 +228,7 @@ func _markers_section() -> Control:
 		row.add_child(_label("at"))
 		var dist := _spin(entry.distance, 0.0, 1000000.0, 0.1, " m")
 		dist.tooltip_text = "Path distance (px) where the block's centre lands."
-		dist.custom_minimum_size.x = 110
+		dist.custom_minimum_size.x = _px(DISTANCE_WIDTH)
 		dist.size_flags_horizontal = Control.SIZE_SHRINK_END
 		dist.value_changed.connect(_on_spin.bind(entry, &"distance", "Set marker distance"))
 		row.add_child(dist)
@@ -208,6 +237,7 @@ func _markers_section() -> Control:
 		del.icon = _icon("Remove")
 		if del.icon == null:
 			del.text = "x"
+		del.custom_minimum_size.x = _px(BUTTON_WIDTH)
 		del.tooltip_text = "Remove this marker"
 		del.pressed.connect(_remove_marker.bind(i))
 		row.add_child(del)
@@ -228,9 +258,7 @@ func _markers_section() -> Control:
 	box.add_child(buttons)
 
 	var snap_row := HBoxContainer.new()
-	var sl := _label("Snap")
-	sl.custom_minimum_size.x = LABEL_WIDTH
-	snap_row.add_child(sl)
+	snap_row.add_child(_column_label("Snap"))
 	var snap := _option(SNAP_NAMES, seq.marker_snap)
 	snap.tooltip_text = "Exact: the marker sits at its distance and the blocks around it are fitted.\nNearest joint: the marker replaces the closest block in the sequence."
 	snap.item_selected.connect(_on_snap)
@@ -242,12 +270,11 @@ func _markers_section() -> Control:
 ## Length / overlap / offset controls for one block.
 func _detail(pm: PathModule) -> Control:
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_left", int(_px(HANDLE_WIDTH)))
 	var v := VBoxContainer.new()
 	margin.add_child(v)
 	var grid := GridContainer.new()
 	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 8)
 	v.add_child(grid)
 
 	grid.add_child(_label("Length (px)"))
@@ -289,6 +316,31 @@ func _auto_text(pm: PathModule) -> String:
 # ------------------------------------------------------------------------------
 
 
+## Wraps a section in the editor's standard sub-inspector box (background and
+## outline), so each section reads as one group.
+func _boxed(content: Control) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _box_style())
+	panel.add_child(content)
+	return panel
+
+
+func _box_style() -> StyleBox:
+	var theme := EditorInterface.get_editor_theme()
+	var sb: StyleBox
+	if theme.has_stylebox("sub_inspector_bg0", "Editor"):
+		sb = theme.get_stylebox("sub_inspector_bg0", "Editor").duplicate()
+	else:
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = Color(0, 0, 0, 0.15)
+		flat.set_border_width_all(1)
+		flat.border_color = theme.get_color("accent_color", "Editor") if theme.has_color("accent_color", "Editor") else Color(0.5, 0.6, 0.8)
+		flat.set_corner_radius_all(4)
+		sb = flat
+	sb.set_content_margin_all(_px(4))
+	return sb
+
+
 func _header(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -304,6 +356,21 @@ func _label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
 	return l
+
+
+## A label in the left-hand column ("First", "Last", "Fit", the grips): the same
+## width on every row so the pickers line up.
+func _column_label(text: String) -> Label:
+	var l := _label(text)
+	l.custom_minimum_size.x = _px(HANDLE_WIDTH)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+func _spacer(width: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size.x = _px(width)
+	return c
 
 
 func _icon(icon_name: String) -> Texture2D:
@@ -326,6 +393,17 @@ func _spin(value: float, lo: float, hi: float, step: float, suffix := "") -> Spi
 	return s
 
 
+## The multiplier box at the right of a row.
+func _count_spin(value: int, prefix: String, tip: String, obj: Object, prop: StringName, label: String) -> SpinBox:
+	var s := _spin(value, 1.0, 1000.0, 1.0)
+	s.prefix = prefix
+	s.custom_minimum_size.x = _px(COUNT_WIDTH)
+	s.size_flags_horizontal = Control.SIZE_SHRINK_END
+	s.tooltip_text = tip
+	s.value_changed.connect(_on_int.bind(obj, prop, label))
+	return s
+
+
 func _option(names: Array, selected: int) -> OptionButton:
 	var o := OptionButton.new()
 	for n in names:
@@ -335,14 +413,11 @@ func _option(names: Array, selected: int) -> OptionButton:
 	return o
 
 
-## A scene picker: Quick Load, Load, Clear, and drag a file onto it.
-func _picker(scene: PackedScene, on_change: Callable) -> EditorResourcePicker:
-	var p := EditorResourcePicker.new()
-	p.base_type = "PackedScene"
-	p.editable = true
-	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	p.edited_resource = scene
-	p.resource_changed.connect(on_change)
+## A compact scene picker (file name + dropdown), one line high.
+func _picker(scene: PackedScene, on_change: Callable) -> Control:
+	var p := ScenePicker.new()
+	p.set_scene(scene)
+	p.scene_changed.connect(on_change)
 	return p
 
 
@@ -353,6 +428,7 @@ func _expander(key: String) -> Button:
 	b.icon = _icon("GuiTreeArrowDown" if open else "GuiTreeArrowRight")
 	if b.icon == null:
 		b.text = "v" if open else ">"
+	b.custom_minimum_size.x = _px(BUTTON_WIDTH)
 	b.tooltip_text = "Length, overlap and offset for this block"
 	b.pressed.connect(_toggle_expanded.bind(key))
 	return b
@@ -412,6 +488,12 @@ func _on_entry_scene(res: Resource, entry: Object) -> void:
 	_queue_build()
 
 
+## A scene was chosen in the empty slot: it becomes a block row.
+func _on_slot_scene(scene: PackedScene) -> void:
+	if scene:
+		_add_blocks_from([scene])
+
+
 func _on_anchor(on: bool) -> void:
 	_apply(_stitcher.sequence, &"anchor_end", on, "Anchor Last block to end of path")
 
@@ -441,16 +523,8 @@ func _typed_markers() -> Array[PathMarkerEntry]:
 	return arr
 
 
-func _add_block() -> void:
-	var entry := PathPatternEntry.new()
-	entry.module = PathModule.new()
-	var arr := _typed_pattern()
-	arr.append(entry)
-	_apply(_stitcher.sequence, &"pattern", arr, "Add block")
-	_queue_build()
-
-
-## Scene files dropped onto "Add block": one new row per scene, in one undo step.
+## Scenes chosen in or dropped on the empty slot: one new block row per scene,
+## in one undo step.
 func _add_blocks_from(scenes: Array) -> void:
 	if scenes.is_empty():
 		return
@@ -563,7 +637,6 @@ class _Handle extends Label:
 		text = "≡"
 		horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		custom_minimum_size = Vector2(24, 24)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_default_cursor_shape = Control.CURSOR_DRAG
 		tooltip_text = "Drag onto another row's grip to reorder"
@@ -579,29 +652,3 @@ class _Handle extends Label:
 
 	func _drop_data(_at_position: Vector2, data: Variant) -> void:
 		on_drop.call(data.from, index)
-
-
-## "Add block": a click adds an empty row; scene files dragged from the
-## FileSystem dock and dropped on it are added as one row each.
-class _DropButton extends Button:
-	const SCENE_EXTENSIONS := ["blend", "glb", "gltf", "tscn", "scn"]
-	var on_scenes: Callable
-
-	func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-		return not _paths_from(data).is_empty()
-
-	func _drop_data(_at_position: Vector2, data: Variant) -> void:
-		var scenes := []
-		for path in _paths_from(data):
-			var res := ResourceLoader.load(path)
-			if res is PackedScene:
-				scenes.append(res)
-		on_scenes.call(scenes)
-
-	static func _paths_from(data: Variant) -> PackedStringArray:
-		var out := PackedStringArray()
-		if data is Dictionary and data.get("type", "") == "files":
-			for f in data.get("files", []):
-				if String(f).get_extension().to_lower() in SCENE_EXTENSIONS:
-					out.append(f)
-		return out

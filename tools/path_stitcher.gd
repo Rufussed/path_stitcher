@@ -5,13 +5,13 @@ extends Node3D
 ## vertex through the curve, so neighbouring modules meet seamlessly at shared
 ## joints instead of being placed as rigid copies with gaps and lips.
 ##
-## Add it as a child of the Path3D it follows (the path is then picked up
-## automatically), or put it anywhere and set `path_node`.
+## Add it as a child of the Path3D it follows: Path Node is then filled in
+## automatically (to the parent). Or put it anywhere and set `path_node`.
 ##
 ## What is placed comes from `sequence` (a PathSequence): an optional first
 ## block, a block sequence (repeated in order or a seeded random draw), an
-## optional last block, and markers. Edit it in the BUILDING BLOCKS section of
-## the Inspector (the PathStitcher editor plugin).
+## optional last block, and markers. Edit it in the BUILDING BLOCK SEQUENCE
+## section of the Inspector (the PathStitcher editor plugin).
 ##
 ## Module axes: X = along the path (px), Y = up (py), Z = lateral (pz), origin
 ## at the centre of X. A module placed between path distances s0 and s1 maps a
@@ -35,14 +35,15 @@ extends Node3D
 
 enum UpMode { WORLD, PATH }
 
-## The Path3D to follow. Leave empty to use the parent, when it is a Path3D.
+## The Path3D to follow. Filled in automatically (to the parent) when this node
+## is added under a Path3D; an empty value also means "the parent".
 @export_node_path("Path3D") var path_node: NodePath:
 	set(value):
 		path_node = value
 		update_configuration_warnings()
 		queue_rebuild()
 
-## What to place along the path (edited in the BUILDING BLOCKS section).
+## What to place along the path (edited in the BUILDING BLOCK SEQUENCE section).
 @export var sequence: PathSequence:
 	set(value):
 		if sequence and sequence.changed.is_connected(queue_rebuild):
@@ -98,6 +99,12 @@ var _warnings: PackedStringArray = []
 var _pending := -1.0
 var _poll := 0.0
 var _watch_sig := ""
+
+
+func _enter_tree() -> void:
+	# Spell the parent out as the path, so the Inspector shows it assigned.
+	if Engine.is_editor_hint() and path_node.is_empty() and get_parent() is Path3D:
+		path_node = NodePath("..")
 
 
 func _ready() -> void:
@@ -282,15 +289,21 @@ func _layout(length: float) -> Array:
 	var trail: Array = []
 	var fixed: Array = []
 	if seq.start and _module(seq.start) >= 0:
-		lead.append(_module(seq.start))
+		for _i in seq.start_count:
+			lead.append(_module(seq.start))
 	if seq.end and _module(seq.end) >= 0:
 		var e := _module(seq.end)
 		var e_len: float = _mods[e].length
 		if seq.anchor_end:
-			fixed.append({"mod": e, "s0": b - e_len, "s1": b})
-			b -= e_len
+			# The last blocks sit unstretched against the path end.
+			var pos := b
+			for _i in seq.end_count:
+				fixed.push_front({"mod": e, "s0": pos - e_len, "s1": pos})
+				pos -= e_len
+			b = pos
 		else:
-			trail.append(e)
+			for _i in seq.end_count:
+				trail.append(e)
 
 	var markers := _all_markers()
 	if seq.marker_snap == PathSequence.MarkerSnap.NEAREST_JOINT or markers.is_empty():
