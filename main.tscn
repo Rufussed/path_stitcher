@@ -5,7 +5,9 @@
 [ext_resource type="Resource" uid="uid://cutnjukiqrgu5" path="res://game_params.tres" id="2_d13ii"]
 [ext_resource type="Script" uid="uid://b68g5pyfn7ch6" path="res://player/player.gd" id="3_1bvp3"]
 [ext_resource type="Script" uid="uid://q2y0twr2i2yk" path="res://tools/path_axes_follower.gd" id="4_lquwl"]
+[ext_resource type="Script" uid="uid://c5k20uy4dstpd" path="res://tools/sequence/path_marker_entry.gd" id="4_lswn8"]
 [ext_resource type="Script" uid="uid://lbd21tfxqko" path="res://tools/path_stitcher.gd" id="4_ryguw"]
+[ext_resource type="Script" uid="uid://fnjnata0erps" path="res://tools/sequence/path_pattern_entry.gd" id="5_a6jrf"]
 [ext_resource type="PackedScene" uid="uid://bckdn7ji2qojv" path="res://assets/characters/skater/skater.blend" id="5_cegan"]
 [ext_resource type="Script" uid="uid://deo0gxkmk2ahd" path="res://addons/sky_3d/src/Sky3D.gd" id="5_lquwl"]
 [ext_resource type="Shader" uid="uid://cvd0x7lon1ur6" path="res://addons/sky_3d/shaders/SkyMaterial.gdshader" id="5_w48qg"]
@@ -14,6 +16,8 @@
 [ext_resource type="Texture2D" uid="uid://cfqk60lpl5ljv" path="res://addons/sky_3d/assets/resources/SNoise.tres" id="6_vivmo"]
 [ext_resource type="Script" uid="uid://dido16s7lqdjk" path="res://player/path_camera.gd" id="7_1u8w0"]
 [ext_resource type="Texture2D" uid="uid://cecwdqjol0ckd" path="res://addons/sky_3d/assets/textures/noiseClouds.png" id="7_2cqfq"]
+[ext_resource type="Script" uid="uid://dqle5cbhie10c" path="res://tools/sequence/path_module.gd" id="7_xuqvo"]
+[ext_resource type="Script" uid="uid://bhfotg0hs6k15" path="res://tools/sequence/path_sequence.gd" id="8_qsp4k"]
 [ext_resource type="Texture2D" uid="uid://2r8ylu6rg5dp" path="res://addons/sky_3d/assets/thirdparty/textures/moon/MoonMap.png" id="8_yaehf"]
 [ext_resource type="Texture2D" uid="uid://djpfuyxkryegn" path="res://addons/sky_3d/assets/textures/noise.jpg" id="9_074og"]
 [ext_resource type="Texture2D" uid="uid://bm7dot7t7u1q4" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/StarField.jpg" id="10_cegan"]
@@ -31,6 +35,26 @@ _data = {
 point_count = 161
 
 [sub_resource type="GDScript" id="GDScript_0xm2m"]
+
+[sub_resource type="Resource" id="Resource_kq58d"]
+script = ExtResource("7_xuqvo")
+scene = ExtResource("1_ig7tw")
+overlap = 0.5
+
+[sub_resource type="Resource" id="Resource_seu75"]
+script = ExtResource("5_a6jrf")
+module = SubResource("Resource_kq58d")
+
+[sub_resource type="Resource" id="Resource_lswn8"]
+script = ExtResource("7_xuqvo")
+
+[sub_resource type="Resource" id="Resource_a6jrf"]
+script = ExtResource("5_a6jrf")
+module = SubResource("Resource_lswn8")
+
+[sub_resource type="Resource" id="Resource_htxhm"]
+script = ExtResource("8_qsp4k")
+pattern = Array[ExtResource("5_a6jrf")]([SubResource("Resource_seu75"), SubResource("Resource_a6jrf")])
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_7mycd"]
 radius = 0.4
@@ -99,8 +123,8 @@ shader_parameter/cirrus_absorption = 2.0
 shader_parameter/cirrus_sky_tint_fade = 0.5
 shader_parameter/cirrus_size = 1.0
 shader_parameter/cirrus_uv = Vector2(0.16, 0.11)
-shader_parameter/cirrus_position1 = Vector2(0.8443485, 0.8443485)
-shader_parameter/cirrus_position2 = Vector2(0.8443485, 0.8443485)
+shader_parameter/cirrus_position1 = Vector2(0.8898684, 0.8898684)
+shader_parameter/cirrus_position2 = Vector2(0.8898684, 0.8898684)
 shader_parameter/cirrus_texture = ExtResource("6_vivmo")
 shader_parameter/cumulus_visible = true
 shader_parameter/cumulus_intensity = 0.6
@@ -110,7 +134,7 @@ shader_parameter/cumulus_absorption = 2.0
 shader_parameter/cumulus_noise_freq = 2.7
 shader_parameter/cumulus_sky_tint_fade = 0.0
 shader_parameter/cumulus_size = 0.5
-shader_parameter/cumulus_position = Vector2(103.29051, 103.29051)
+shader_parameter/cumulus_position = Vector2(118.08498, 118.08498)
 shader_parameter/cumulus_texture = ExtResource("7_2cqfq")
 shader_parameter/cumulus_partial_mie_phase = Vector3(0.957564, 1.042436, 0.412)
 shader_parameter/cumulus_mie_intensity = 1.0
@@ -144,6 +168,18 @@ _data = {
 }
 point_count = 29
 
+[sub_resource type="Resource" id="Resource_jq2sk"]
+script = ExtResource("7_xuqvo")
+scene = ExtResource("16_yaehf")
+
+[sub_resource type="Resource" id="Resource_4k2k6"]
+script = ExtResource("5_a6jrf")
+module = SubResource("Resource_jq2sk")
+
+[sub_resource type="Resource" id="Resource_0rl1p"]
+script = ExtResource("8_qsp4k")
+pattern = Array[ExtResource("5_a6jrf")]([SubResource("Resource_4k2k6")])
+
 [node name="Node3D" type="Node3D" unique_id=1662825011]
 script = ExtResource("1_ryguw")
 params = ExtResource("2_d13ii")
@@ -152,12 +188,9 @@ params = ExtResource("2_d13ii")
 curve = SubResource("Curve3D_h2yge")
 script = SubResource("GDScript_0xm2m")
 
-[node name="Block1" parent="." unique_id=1115688873 instance=ExtResource("1_ig7tw")]
-
-[node name="TowerStitcher" type="Node3D" parent="." unique_id=365011356]
+[node name="TowerStitcher" type="Node3D" parent="SpiralPath" unique_id=365011356]
 script = ExtResource("4_ryguw")
-path_node = NodePath("../SpiralPath")
-source_node = NodePath("../Block1")
+sequence = SubResource("Resource_htxhm")
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=1474213973]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95, -2.357, -227.009)
@@ -244,12 +277,7 @@ curve = SubResource("Curve3D_cegan")
 script = ExtResource("16_074og")
 height_offset = 0.05
 
-[node name="Road" parent="." unique_id=1732807798 instance=ExtResource("16_yaehf")]
-
-[node name="HillRoadStitcher" type="Node3D" parent="." unique_id=933908845]
+[node name="HillRoadStitcher" type="Node3D" parent="HillRoadPath" unique_id=933908845]
 script = ExtResource("4_ryguw")
-path_node = NodePath("../HillRoadPath")
-source_node = NodePath("../Road")
-spacing = 6.0
-stretch_to_fit = true
+sequence = SubResource("Resource_0rl1p")
 up_mode = 1

@@ -1,11 +1,11 @@
 @tool
 class_name PathSequence
 extends Resource
-## What a PathStitcher places along its path: an optional start module, a
-## repeating pattern (or a seeded random draw), an optional end module, and
-## markers that put specific modules at specific distances. Save it as a .tres
-## to share it between paths. Any change re-emits `changed`, so the stitcher
-## rebuilds live.
+## What a PathStitcher places along its path: an optional first block, a block
+## sequence (repeating in order, or a seeded weighted random draw), an optional
+## last block, and markers that put specific modules at specific distances.
+## Save it as a .tres to share it between paths. Any change re-emits `changed`,
+## so the stitcher rebuilds live.
 
 enum Mode { PATTERN, RANDOM }
 enum Fit { STRETCH, TRUNCATE_PATTERN, FINISH_CYCLE, NONE }
@@ -29,22 +29,24 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 		_watch(end)
 		emit_changed()
 
-## Place the end module exactly at the path end, unstretched; only the modules
+## Place the last block exactly at the path end, unstretched; only the blocks
 ## before it are fitted.
 @export var anchor_end := false:
 	set(value):
 		anchor_end = value
 		emit_changed()
 
-@export_group("Middle")
+@export_group("Block sequence")
 
-## PATTERN repeats `pattern` in order; RANDOM draws from `random_entries`.
+## PATTERN repeats the block sequence in order; RANDOM draws from it, using
+## each row's count as its weight.
 @export var mode := Mode.PATTERN:
 	set(value):
 		mode = value
 		emit_changed()
 
-## Repeated in order, e.g. Block1 x4 then Block2 x2.
+## The blocks: in PATTERN mode `count` copies of each in a row, repeated to
+## fill the path; in RANDOM mode `count` is the block's weight.
 @export var pattern: Array[PathPatternEntry] = []:
 	set(value):
 		for e in pattern:
@@ -54,21 +56,11 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 			_watch(e)
 		emit_changed()
 
-## Start the pattern this many modules in, so neighbouring paths can continue
+## Start the pattern this many blocks in, so neighbouring paths can continue
 ## each other's rhythm.
 @export_range(0, 1000, 1, "or_greater") var pattern_offset := 0:
 	set(value):
 		pattern_offset = value
-		emit_changed()
-
-## Weighted choices for RANDOM mode.
-@export var random_entries: Array[PathRandomEntry] = []:
-	set(value):
-		for e in random_entries:
-			_unwatch(e)
-		random_entries = value
-		for e in random_entries:
-			_watch(e)
 		emit_changed()
 
 ## Same seed = same random layout every rebuild.
@@ -77,7 +69,7 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 		random_seed = value
 		emit_changed()
 
-## Longest run of the same module in RANDOM mode (0 = unlimited).
+## Longest run of the same block in RANDOM mode (0 = unlimited).
 @export_range(0, 100, 1, "or_greater") var max_repeat := 0:
 	set(value):
 		max_repeat = value
@@ -85,11 +77,11 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 
 @export_group("Fit")
 
-## How modules are made to fill the path exactly.
-## STRETCH: whole modules, all stretched by the same small factor.
-## TRUNCATE_PATTERN: as many whole modules as fit, then stretched to close the gap.
+## How blocks are made to fill the path exactly.
+## STRETCH: whole blocks, all stretched by the same small factor.
+## TRUNCATE_PATTERN: as many whole blocks as fit, then stretched to close the gap.
 ## FINISH_CYCLE: whole pattern cycles only (more stretch, rhythm intact).
-## NONE: no stretch; any gap before the end module stays visible.
+## NONE: no stretch; any gap before the last block stays visible.
 @export var fit := Fit.STRETCH:
 	set(value):
 		fit = value
@@ -108,9 +100,9 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 			_watch(e)
 		emit_changed()
 
-## EXACT: the marker sits exactly at its distance and the modules either side
+## EXACT: the marker sits exactly at its distance and the blocks either side
 ## are fitted around it. NEAREST_JOINT: the marker replaces the closest
-## sequence module, in that module's slot.
+## block, in that block's slot.
 @export var marker_snap := MarkerSnap.EXACT:
 	set(value):
 		marker_snap = value

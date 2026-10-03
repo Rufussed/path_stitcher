@@ -5,13 +5,17 @@ extends Node3D
 ## vertex through the curve, so neighbouring modules meet seamlessly at shared
 ## joints instead of being placed as rigid copies with gaps and lips.
 ##
-## What is placed comes from `sequence` (a PathSequence: start module, a
-## repeating pattern or seeded random draw, end module, markers), or, when no
-## sequence is set, from `source_node` repeated every `spacing` metres.
+## Add it as a child of the Path3D it follows (the path is then picked up
+## automatically), or put it anywhere and set `path_node`.
 ##
-## Module axes: X = along the path, Y = up, Z = lateral (Z = 0 sits on the
-## path), origin at the centre of X. A module placed between path distances
-## s0 and s1 maps a vertex (x, y, z) to
+## What is placed comes from `sequence` (a PathSequence): an optional first
+## block, a block sequence (repeated in order or a seeded random draw), an
+## optional last block, and markers. Edit it in the BUILDING BLOCKS section of
+## the Inspector (the PathStitcher editor plugin).
+##
+## Module axes: X = along the path (px), Y = up (py), Z = lateral (pz), origin
+## at the centre of X. A module placed between path distances s0 and s1 maps a
+## vertex (x, y, z) to
 ##     V = P(s) + z * L(s) + y * U(s),   s = (s0 + s1) / 2 + x * (s1 - s0) / length
 ## where P is the curve point, L the lateral (left) direction and U the up
 ## direction. Adjacent modules evaluate the same s at their shared joint, so the
@@ -27,14 +31,18 @@ extends Node3D
 ## collision body, so draw calls scale with chunks x materials.
 ##
 ## In the editor the output rebuilds by itself shortly after the sequence, the
-## curve, or a PathMarker on the path changes.
+## curve, the path's transform, or a PathMarker on the path changes.
 
 enum UpMode { WORLD, PATH }
 
-@export_node_path("Path3D") var path_node: NodePath
+## The Path3D to follow. Leave empty to use the parent, when it is a Path3D.
+@export_node_path("Path3D") var path_node: NodePath:
+	set(value):
+		path_node = value
+		update_configuration_warnings()
+		queue_rebuild()
 
-## What to place along the path. When empty, `source_node` is repeated every
-## `spacing` metres instead.
+## What to place along the path (edited in the BUILDING BLOCKS section).
 @export var sequence: PathSequence:
 	set(value):
 		if sequence and sequence.changed.is_connected(queue_rebuild):
@@ -42,50 +50,45 @@ enum UpMode { WORLD, PATH }
 		sequence = value
 		if sequence:
 			sequence.changed.connect(queue_rebuild)
+		update_configuration_warnings()
 		queue_rebuild()
 
-@export_group("Single module (no sequence)")
-@export_node_path("Node3D") var source_node: NodePath
-## Distance along the path between module centres (joint-to-joint length).
-@export var spacing := 5.0
-## Adjust the spacing so a whole number of modules exactly fills the path.
-@export var stretch_to_fit := false
-## Number of modules; 0 fills the whole path.
-@export var count := 0
-## Hide the source module when the game runs.
-@export var hide_source_in_game := true
-@export_group("")
+@export_tool_button("Rebuild", "Reload") var rebuild_action = rebuild
+@export_tool_button("Clear", "Remove") var clear_action = clear
 
-## Path distance where the first module's start joint sits.
+## What the last build placed, and any warnings.
+@export_multiline var summary := ""
+
+@export_group("SHAPE")
+## Path distance where the first block's start joint sits (m).
 @export var start_offset := 0.0
 ## How the module's up direction is chosen; see the class description.
 @export var up_mode := UpMode.WORLD
 ## Flip which side of the path module +Z extends to.
 @export var flip_side := false
-## Modules combined into each output mesh and collision body (1 = one per module).
-@export_range(1, 100) var chunk_size := 10
+
+@export_group("COLLISION")
 ## Meshes whose name starts with this become invisible collision.
 @export var collision_prefix := "Col-"
 ## Meshes whose name starts with this are visible and also become collision.
 @export var visible_collision_prefix := "ColVis-"
 @export var generate_collision := true
 
-@export_tool_button("Rebuild", "Reload") var rebuild_action = rebuild
-@export_tool_button("Clear", "Remove") var clear_action = clear
-@export_tool_button("Add Marker Here", "Marker3D") var add_marker_action = add_marker_here
-
-## What the last build placed, and any warnings.
-@export_multiline var summary := ""
+@export_group("OUTPUT")
+## Modules combined into each output mesh and collision body (1 = one per module).
+@export_range(1, 100) var chunk_size := 10
 
 const STEP := 0.05 # lookup-table resolution along module X, metres
 const OUT_NAME := "_Generated"
 const SLOTS := [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TANGENT,
 		Mesh.ARRAY_COLOR, Mesh.ARRAY_TEX_UV, Mesh.ARRAY_TEX_UV2]
 
+## The path being followed: `path_node`, or the parent when that is empty.
 var path: Path3D:
-	get: return get_node_or_null(path_node) as Path3D
-var source: Node3D:
-	get: return get_node_or_null(source_node) as Node3D
+	get:
+		if path_node.is_empty():
+			return get_parent() as Path3D
+		return get_node_or_null(path_node) as Path3D
 
 ## Per build: prepared module data [{groups, x0, x1, length, name}] and the
 ## PathModule -> index map.
@@ -98,9 +101,8 @@ var _watch_sig := ""
 
 
 func _ready() -> void:
-	if not Engine.is_editor_hint() and hide_source_in_game and sequence == null and source:
-		source.visible = false
 	set_process(Engine.is_editor_hint())
+	update_configuration_warnings()
 	rebuild()
 	_watch_sig = _watch_signature()
 
@@ -110,10 +112,26 @@ func _validate_property(property: Dictionary) -> void:
 		property.usage = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY
 
 
+## Shown as a warning triangle on the node in the Scene dock.
+func _get_configuration_warnings() -> PackedStringArray:
+	var out := PackedStringArray()
+	var p := path
+	if p == null:
+		out.append("No path: make this node a child of a Path3D, or set Path Node.")
+	elif p.curve == null:
+		out.append("The Path3D has no curve.")
+	elif get_parent() == p and not p.global_transform.basis.get_scale().is_equal_approx(Vector3.ONE):
+		out.append("The parent Path3D is scaled, and the blocks inherit its scale. Keep the path's scale at 1, or move this node out of the path.")
+	if sequence == null:
+		out.append("No building blocks: use Create building blocks in the Inspector.")
+	return out
+
+
 ## Schedules a rebuild shortly (editor only), so a burst of edits rebuilds once.
 func queue_rebuild() -> void:
 	if Engine.is_editor_hint() and is_inside_tree():
 		_pending = 0.3
+		set_process(true)
 
 
 func _process(delta: float) -> void:
@@ -127,15 +145,17 @@ func _process(delta: float) -> void:
 		var sig := _watch_signature()
 		if sig != _watch_sig:
 			_watch_sig = sig
+			update_configuration_warnings()
 			queue_rebuild()
 
 
-## Changes to the curve or to PathMarkers on the path, as a string to compare.
+## Changes to the curve, the path's transform, or PathMarkers on the path, as a
+## string to compare.
 func _watch_signature() -> String:
 	var p := path
 	if p == null or p.curve == null:
 		return ""
-	var parts := [p.curve.get_instance_id(), p.curve.point_count, p.curve.get_baked_length()]
+	var parts := [p.curve.get_instance_id(), p.curve.point_count, p.curve.get_baked_length(), p.global_transform]
 	for m in _path_markers():
 		parts.append([m.position, m.module])
 	return str(parts)
@@ -227,6 +247,21 @@ func rebuild() -> void:
 	print("PathStitcher %s: %s" % [name, summary.get_slice("\n", 0)])
 
 
+## The auto length (m) of a module: its mesh extent along the path minus the
+## overlap at both ends. For the Inspector; 0 if it has no usable meshes.
+func measure_length(pm: PathModule) -> float:
+	if pm == null or pm.scene == null:
+		return 0.0
+	var root := pm.scene.instantiate()
+	var data := _prepare_quiet(root)
+	root.free()
+	if data.is_empty():
+		return 0.0
+	var x0: float = data.x0
+	var x1: float = data.x1
+	return (x1 - x0) - 2.0 * pm.overlap
+
+
 # ------------------------------------------------------------------------------
 # Layout: what goes where along the path
 # ------------------------------------------------------------------------------
@@ -236,7 +271,8 @@ func rebuild() -> void:
 ## indexes `_mods` and s0/s1 are the module's joints (path distances).
 func _layout(length: float) -> Array:
 	if sequence == null:
-		return _layout_single(length)
+		_warnings.append("No building blocks set.")
+		return []
 
 	var seq := sequence
 	var gen := _Gen.new(seq, self)
@@ -283,30 +319,6 @@ func _layout(length: float) -> Array:
 	return items + fixed
 
 
-## The original single-module mode: `source_node` every `spacing` metres.
-func _layout_single(length: float) -> Array:
-	if source == null:
-		_warnings.append("No sequence and no source node set.")
-		return []
-	var data := _prepare(source, "%s" % source.name)
-	if data.is_empty():
-		return []
-	data.length = spacing
-	_mods.append(data)
-	var available := length - start_offset
-	var pitch := spacing
-	var n := count if count > 0 else int(available / spacing)
-	if stretch_to_fit:
-		if count <= 0:
-			n = maxi(1, roundi(available / spacing))
-		pitch = available / n
-	var items := []
-	for i in n:
-		var s0 := start_offset + pitch * i
-		items.append({"mod": 0, "s0": s0, "s1": s0 + pitch})
-	return items
-
-
 ## Fills [a, b] with `lead` modules, then middle modules from `gen`, then
 ## `trail` modules, made to fit by the sequence's fit mode. Advances `gen` by
 ## the middle modules used.
@@ -314,7 +326,7 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 	var span := b - a
 	if span <= 0.001:
 		if not (lead.is_empty() and trail.is_empty()):
-			_warnings.append("A segment of %.2f m is too short for its start/end modules." % span)
+			_warnings.append("A segment of %.2f m is too short for its first/last blocks." % span)
 		return []
 	var fixed_len := 0.0
 	for m in lead + trail:
@@ -461,19 +473,34 @@ func _module(pm: PathModule) -> int:
 			if data.length <= 0.001:
 				_warnings.append("%s has no length; set its length." % pm.display_name())
 			else:
+				if pm.offset_py != 0.0 or pm.offset_pz != 0.0:
+					var shift := Vector3(0.0, pm.offset_py, pm.offset_pz)
+					for g in data.groups:
+						var v: PackedVector3Array = g.arrays[Mesh.ARRAY_VERTEX]
+						for i in v.size():
+							v[i] += shift
+						g.arrays[Mesh.ARRAY_VERTEX] = v
 				idx = _mods.size()
 				_mods.append(data)
 	else:
-		_warnings.append("A module has no scene set.")
+		_warnings.append("A block has no scene set.")
 	_mod_index[pm] = idx
 	return idx
 
 
 ## Merged mesh data for a module root: {groups, x0, x1, name}, or {} if empty.
 func _prepare(root: Node, display: String) -> Dictionary:
+	var data := _prepare_quiet(root)
+	if data.is_empty():
+		_warnings.append("%s has no meshes." % display)
+		return {}
+	data.name = display
+	return data
+
+
+func _prepare_quiet(root: Node) -> Dictionary:
 	var groups := _collect(root)
 	if groups.is_empty():
-		_warnings.append("%s has no meshes." % display)
 		return {}
 	var x0 := INF
 	var x1 := -INF
@@ -481,7 +508,7 @@ func _prepare(root: Node, display: String) -> Dictionary:
 		for v in g.arrays[Mesh.ARRAY_VERTEX]:
 			x0 = minf(x0, v.x)
 			x1 = maxf(x1, v.x)
-	return {"groups": groups, "x0": x0, "x1": x1, "name": display, "length": x1 - x0}
+	return {"groups": groups, "x0": x0, "x1": x1, "name": "", "length": x1 - x0}
 
 
 ## Surfaces under `root` baked into root-local space, merged into one set of
@@ -677,8 +704,9 @@ func add_marker_here() -> void:
 # ------------------------------------------------------------------------------
 
 
-## Produces middle modules in order: the pattern repeated, or a seeded weighted
-## random draw. `copy()` lets the layout look ahead without consuming.
+## Produces middle modules in order: the block sequence repeated, or a seeded
+## weighted random draw (each row's count is its weight). `copy()` lets the
+## layout look ahead without consuming.
 class _Gen:
 	var mode := 0
 	var flat: Array = [] # pattern, expanded: module indexes
@@ -703,10 +731,10 @@ class _Gen:
 						flat.append(host._module(e.module))
 			idx = seq.pattern_offset
 		else:
-			for e in seq.random_entries:
-				if e and e.module and e.weight > 0.0 and host._module(e.module) >= 0:
+			for e in seq.pattern:
+				if e and e.module and e.count > 0 and host._module(e.module) >= 0:
 					choices.append(host._module(e.module))
-					weights.append(e.weight)
+					weights.append(float(e.count))
 
 	func copy() -> _Gen:
 		var g := _Gen.new()

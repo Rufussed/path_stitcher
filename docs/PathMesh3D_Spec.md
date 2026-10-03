@@ -61,7 +61,7 @@ The prefixes avoid Godot's importer suffixes (`-col`, `-colonly`), so the import
 
 Each vertex is mapped through the curve rather than the module being moved as one rigid piece. Neighbouring modules evaluate the same curve point at their shared joint, so their seams coincide exactly.
 
-For a source vertex (x, y, z) in module i, with centre distance cᵢ = start_offset + spacing × (i + 0.5):
+For a source vertex (x, y, z) in module i, whose centre sits at path distance cᵢ (the middle of its two joints):
 
 ```latex
 s = c_i + x \qquad V = P(s) + z\,R(s) + y\,\hat{U}
@@ -89,43 +89,41 @@ The wedge and shear both vary along the spiral, so they are computed for each mo
 
 ## Current implementation
 
-`PathStitcher` (`res://tools/path_stitcher.gd`, formerly `PathStitcher`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. In `main.tscn` the nodes are `TowerStitcher` and `HillRoadStitcher`.
+`PathStitcher` (`res://tools/path_stitcher.gd`, formerly `PathMeshDeformer`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. In `main.tscn` the nodes are `SpiralPath/TowerStitcher` and `HillRoadPath/HillRoadStitcher`, each a child of the path it follows. What it places comes from a `PathSequence` (see "Module sequences"); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
 
 | Property | Type | Purpose |
 | --- | --- | --- |
-| `path_node` | NodePath (Path3D) | The curve to follow |
-| `source_node` | NodePath (Node3D) | Module root; every MeshInstance3D under it is used |
-| `spacing` | float, 5.0 | Joint-to-joint distance |
-| `start_offset` | float, 0.0 | Path distance of the first start joint |
-| `count` | int, 0 | Number of modules; 0 fills the path |
-| `flip_side` | bool | Swap which side +Z extends to |
-| `stretch_to_fit` | bool | Adjust spacing so whole modules exactly fill the path |
+| `path_node` | NodePath (Path3D) | The curve to follow. Empty = use the parent, when it is a Path3D (the standard layout) |
+| `sequence` | PathSequence | The building blocks (edited in the BUILDING BLOCKS section) |
+| `start_offset` | float, 0.0 | Path distance of the first block's start joint |
 | `up_mode` | WORLD / PATH | Vertical shear, or pitch and bank with the path |
-| `chunk_size` | int, 10 | Modules per output mesh and collision body |
+| `flip_side` | bool | Swap which side +Z extends to |
 | `collision_prefix` | String, `Col-` | Collision only |
 | `visible_collision_prefix` | String, `ColVis-` | Visible and collision |
 | `generate_collision` | bool | Build StaticBody3D trimesh shapes |
-| `hide_source_in_game` | bool | Hide the source module at runtime |
+| `chunk_size` | int, 10 | Modules per output mesh and collision body |
 | Rebuild / Clear | Inspector buttons | Regenerate or remove the output |
+| `summary` | read-only text | What the last build placed, and any warnings |
 
 How it works:
 
-1. Source surfaces are collected into the module's local space with their materials.
-2. For each module, a lookup table of curve frames (P, L, U) is sampled every 0.05 m across the module's X extent.
+1. Each block's scene is instanced once; its surfaces are collected into the module's local space and merged by material.
+2. For each placed module, a lookup table of curve frames (P, L, U) is sampled every 0.05 m across the module's X extent.
 3. Each vertex is mapped by interpolating that table; normals and tangents go through the Jacobian.
 4. Every `chunk_size` modules are combined into one MeshInstance3D (one surface per material) and one StaticBody3D holding their collision (see "Draw-call efficiency").
+
+**Placement.** The standard layout is the stitcher as a child of the Path3D it follows (with `PathMarker`s and `PathGroundDraper` as siblings under the same path). The path is then found automatically, and moving or rotating the path moves the blocks with it. The stitcher can also live elsewhere with `path_node` set; it rebuilds when the path's transform changes either way. Keep a parent path's scale at 1: a child inherits the scale and the blocks would be distorted (the node shows a configuration warning). The node also warns when it has no path, the path has no curve, or no building blocks are set.
 
 The output sits under an unowned `_Generated` child. It is rebuilt on load and never saved into the scene, which keeps `main.tscn` small.
 
 Status: deformation works across the whole spiral (550 modules) and the hill road (38 modules); `Col-` / `ColVis-` collision works, and generated trimesh shapes collide from both sides (`backface_collision`) so single-plane floors and walls are solid.
 
-### Up mode and stretch to fit
+### Up mode
 
 | Property | Values | Effect |
 | --- | --- | --- |
 | `up_mode` | `WORLD` (default) | Up is world up; slope becomes a vertical shear, walls stay vertical (the tower) |
 | | `PATH` | Up is perpendicular to the path, from Curve3D up vectors including point tilt; modules pitch and bank (a road on a hill) |
-| `stretch_to_fit` | bool | Spacing is adjusted so a whole number of modules exactly fills the path, with no overlap |
 
 Modules deform only at their vertices: a single-quad road piece cannot bend within itself, so subdivide modules that must follow curvature.
 
@@ -155,25 +153,29 @@ On the Tower of Babel hill (a 20 m cone frustum whose top, at Y = 16, buries the
 
 ## Module sequences
 
-A path is filled from a **sequence**, not a single module: an optional start module, a repeating pattern, and an optional end module. Example: `StartBlock`, then (4 × `Block1`, 2 × `Block2`) repeated, then `EndBlock`.
+A path is filled from **building blocks**: an optional first block, a block sequence, and an optional last block, plus markers. Example: `StartBlock`, then (4 × `Block1`, 2 × `Block2`) repeated, then `EndBlock`. The tower is the simplest case: a one-entry sequence, `Block1.blend`.
 
 ### Resources
 
-Sequences are Resources, so one can be saved as a `.tres` and shared by many paths.
+Building blocks are Resources, stored inside the scene (or saved as a `.tres` and shared by several paths).
 
 | Resource | Field | Purpose |
 | --- | --- | --- |
-| `PathModule` | `scene` (PackedScene) | The module, loaded from file. No placed source node is needed in the level |
-| | `length` (float, 0 = auto) | Joint-to-joint length; 0 uses the mesh's X extent minus `overlap` |
+| `PathModule` | `scene` (PackedScene) | The block, loaded from file. No placed source node is needed in the level |
+| | `length` (float, 0 = auto) | Joint-to-joint length along the path (px); 0 uses the mesh's X extent minus `overlap` at each end |
 | | `overlap` (float) | Built-in overlap at each end (Block1: 0.5 m, giving 5 m from a 6 m mesh) |
-| | `up_mode`, `flip_side` (optional overrides) | Per-module exceptions to the stitcher's settings |
-| `PathSequence` | `start` (PathModule, optional) | Placed once at the path start |
-| | `pattern` (Array of `{module, count}`) | Repeated to fill the middle, e.g. `[{Block1, 4}, {Block2, 2}]` |
-| | `end` (PathModule, optional) | Placed once at the path end |
-| | `fit` (enum) | How the middle meets the end exactly (below) |
+| | `offset_py`, `offset_pz` (float) | Per-block offset: py raises or lowers the block, pz shifts it sideways (+ = left of travel) |
+| `PathPatternEntry` | `module` (PathModule), `count` (int ≥ 1) | One row of the block sequence: `count` copies in a row, or the block's weight in random mode |
+| `PathSequence` | `start` (PathModule, optional) | First block, placed once at the path start |
+| | `pattern` (Array of PathPatternEntry) | The block sequence, repeated to fill the path |
+| | `mode` (PATTERN / RANDOM) | Repeat in order, or draw at random using each row's count as its weight |
+| | `end` (PathModule, optional), `anchor_end` | Last block, placed once at the path end |
+| | `fit` (enum) | How the blocks meet the end exactly (below) |
 | | `pattern_offset` (int) | Start the pattern part-way through, so neighbouring paths can continue each other's rhythm |
+| | `random_seed`, `max_repeat` | RANDOM mode: the seed, and the longest run of one block |
+| | `markers`, `marker_snap` | Blocks at specific distances (below) |
 
-`PathStitcher` gains `sequence: PathSequence`. When it is set it replaces `source_node` and `spacing`; the old single-module setup becomes a one-entry pattern, so existing scenes keep working.
+`PathStitcher.sequence` holds the `PathSequence`. A per-block `up_mode` / `flip_side` override is planned.
 
 ### Layout along the path
 
@@ -204,19 +206,18 @@ Paths shorter than start + end use only the start module (stretched), with a war
 
 ### Anchored end
 
-`PathSequence.anchor_end` (bool). When on, the end module is placed with its end joint exactly at the path end, unstretched, and the fit mode applies only to the stretch between the start module and the end module. Use it where a path must finish precisely, for example on a doorway or a junction.
+`PathSequence.anchor_end` (bool). When on, the last block is placed with its end joint exactly at the path end, unstretched, and the fit mode applies only to the stretch between the first block and the last block. Use it where a path must finish precisely, for example on a doorway or a junction.
 
 ### Random sequences
 
-`PathSequence.mode`: `PATTERN` (fixed, as above) or `RANDOM`.
+`PathSequence.mode`: `PATTERN` (fixed, as above) or `RANDOM`. In RANDOM mode the same block-sequence rows are used, and each row's number is its **weight** instead of a repeat count: `[{Block1, 4}, {Block2, 1}]` picks Block1 four times as often as Block2 (measured 79.7% against 80% over 40 seeds).
 
 | Field | Purpose |
 | --- | --- |
-| `random_entries` (Array of `{module, weight}`) | Weighted choices, e.g. `[{Block1, 0.8}, {Block2, 0.2}]` |
 | `random_seed` (int) | Same seed gives the same layout on every rebuild and every machine |
-| `max_repeat` (int, 0 = unlimited) | Longest allowed run of the same module |
+| `max_repeat` (int, 0 = unlimited) | Longest allowed run of the same block |
 
-Choices are drawn in path order from the seed, so a layout is stable until the seed or the entries change. Start, end, anchoring, fit modes and markers work the same in both modes.
+Choices are drawn in path order from the seed, so a layout is stable until the seed or the rows change. First and last blocks, anchoring, fit modes and markers work the same in both modes.
 
 ### Markers
 
@@ -231,15 +232,36 @@ The path is split at markers into segments: start → marker 1 → … → end. 
 
 ### Inspector workflow (everything via the GUI)
 
-All sequence setup happens in the Inspector of the stitcher node; no code or text files are needed.
+All setup happens in the BUILDING BLOCKS section at the top of a PathStitcher's Inspector, drawn by the **PathStitcher Inspector** editor plugin (`res://addons/path_stitcher/`). Godot's standard Inspector can only show lists of resources as nested sub-inspectors, so the plugin draws compact rows instead.
 
-- **Sequence:** `PathStitcher.sequence` is a `PathSequence` slot. Choose **New PathSequence** to edit it inline on that node, or **Save As…** to a `.tres` and drop it onto other stitchers to share it.
-- **Modules:** every module slot (`start`, `end`, and each pattern, random or marker entry) is a `PathModule` with a **scene** picker. Drag a `.blend`, `.glb` or `.tscn` from the FileSystem dock straight onto it. `length` and `overlap` show the auto-measured value as a hint.
-- **Pattern, random and marker lists** are typed arrays of small entry resources (`PatternEntry {module, count}`, `RandomEntry {module, weight}`, `MarkerEntry {module, distance}`). They show as normal Inspector lists with **Add Element**, drag to reorder, and per-row fields.
-- **Enums as dropdowns:** `mode` (PATTERN / RANDOM), `fit`, `marker_snap`, and `up_mode`.
-- **Visual markers:** a **Add Marker Here** button on the stitcher adds a `Marker3D` child to the Path3D at the editor camera's closest path point. Moving it in the viewport moves the marker (snapped to the path); its module is set on the marker's own Inspector.
-- **Live rebuild:** any change in the sequence or its entries rebuilds the output automatically (debounced, about 0.3 s), so editing a pattern updates the viewport straight away. **Rebuild** and **Clear** buttons stay for manual use.
-- **Readout:** a read-only summary under the buttons shows the result, for example "1 start + 61 × [Block1 ×4, Block2 ×2] + 1 end, stretch 1.012, 2 markers", plus warnings (path too short, stretch over 10%, marker overlapping the start or end).
+```
+BUILDING BLOCKS
+  First block   [ (none) ................ ]  >
+  Last block    [ (none) ................ ]  >
+                [ ] Anchor Last block to end of path
+  Block sequence                                  [ ] Randomize
+    ≡  [ Block1.blend ............ ]  ×[ 1 ]  >  x
+    ≡  [ Block2.blend ............ ]  ×[ 2 ]  v  x
+         Length (px) [ 0.00 m ]  Overlap [ 0.50 m ]
+         Offset py   [ 0.00 m ]  Offset pz [ 0.00 m ]
+         Auto length 5.00 m (mesh extent minus overlap)
+    [ + Add block ]
+  Fit           [ Stretch v ]       (Randomize on: Seed [ 1 ]  Max repeat [ 3 ])
+  ------------------------------------------------------------------
+MARKERS
+  [ Gate.blend ] at [ 300.0 m ]  x
+  [ + Add marker ] [ Add marker here ]
+  Snap          [ Exact v ]
+```
+
+- **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a scene picker (Quick Load, Load, Clear, or drag a `.blend` / `.glb` / `.tscn` from the FileSystem dock onto it), the repeat count (a weight when Randomize is on), an expander (>) for that block's length, overlap and offset, and a remove button.
+- **Dropping files:** drag `.blend` / `.glb` / `.gltf` / `.tscn` files from the FileSystem dock onto the **Add block** button to add one row per file (one undo step), onto a row's picker to replace that row's scene, or onto the First / Last block pickers to set them. Dragging nodes from the Scene dock is not supported.
+- **First / Last block:** the same picker and expander; **Anchor Last block to end of path** (its own line under the Last block) pins the last block to the path end.
+- **Randomize:** one toggle switches the sequence to a weighted draw and reveals Seed and Max repeat.
+- **Markers:** rows of block and distance, plus **Add marker here**, which drops a `PathMarker` node on the path at the point closest to the editor camera (it snaps to the path as it is dragged; its block is set in its own Inspector).
+- **Undo:** every edit is one undoable editor action, with merging for repeated edits to the same field.
+- **Live rebuild:** any change rebuilds the output automatically (debounced, about 0.3 s). **Rebuild** and **Clear** stay for manual use, and a read-only **summary** shows what was placed, for example "43 modules (Road x15, Block1 x28), stretch 0.994", plus warnings (path too short, stretch over 10%, marker overlapping the first or last block).
+- **If the plugin is off:** the sequence shows as Godot's standard resource slot and everything still works, just less conveniently.
 
 ## Movement axes system (optional)
 
@@ -373,9 +395,10 @@ The Tower of Babel test uses a skateboarding player that consumes the movement a
 - [ ] Branching: a test fork to verify hysteresis, blending and opposed-branch handling in play (implemented, untested)
 - [ ] Deformation envelope (ends only), so the centre of the arches stays undistorted
 - [x] Merge parts by material and chunk modules (draw calls ~30,900 → ~770)
-- [x] `up_mode` PATH, `stretch_to_fit`, `PathGroundDraper`
+- [x] `up_mode` PATH, `PathGroundDraper`
 - [x] Skater player and tuning (see "Test player and tuning")
-- [x] Module sequences: `PathModule` / `PathSequence` resources, start / pattern / end, fit modes, anchored end, random sequences, markers, `PathMarker`, live rebuild, summary readout
+- [x] Module sequences: `PathModule` / `PathSequence` resources, first / sequence / last blocks, fit modes, anchored end, weighted random sequences, markers, `PathMarker`, live rebuild, summary readout
+- [x] BUILDING BLOCKS Inspector (editor plugin): reorderable rows, counts, per-block length / overlap / py / pz offsets, undo
 - [ ] Per-module `up_mode` / `flip_side` overrides on `PathModule`
 - [ ] Closed-loop paths (pattern wraps, no start/end)
 - [ ] Shader deformation with MultiMesh instancing (GPU-side)

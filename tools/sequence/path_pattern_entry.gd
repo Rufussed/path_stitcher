@@ -1,7 +1,8 @@
 @tool
 class_name PathPatternEntry
 extends Resource
-## One row of a PathSequence pattern: `count` copies of `module` in a row.
+## One row of a PathSequence's block sequence. In pattern mode: `count` copies
+## of `module` in a row. In random mode: `count` is the block's weight.
 
 @export var module: PathModule:
 	set(value):
