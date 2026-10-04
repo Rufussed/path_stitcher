@@ -98,6 +98,16 @@ func _sequence_box() -> Control:
 	for i in seq.pattern.size():
 		box.add_child(_block_row(i, random))
 	box.add_child(_empty_slot_row(random))
+	if not random:
+		var rep_row := HBoxContainer.new()
+		rep_row.add_child(_spacer(HANDLE_WIDTH))
+		var rep := CheckBox.new()
+		rep.text = "Repeat between First and Last"
+		rep.tooltip_text = "On: the blocks repeat to fill the space from the First block to the Last block.\nOff: they are placed once, each row's × being how many of that block are placed."
+		rep.button_pressed = seq.repeat_pattern != false
+		rep.toggled.connect(_on_repeat)
+		rep_row.add_child(rep)
+		box.add_child(rep_row)
 	box.add_child(_end_row("Last", &"end", &"end_count"))
 
 	var fit_row := HBoxContainer.new()
@@ -298,16 +308,27 @@ func _detail(pm: PathModule) -> Control:
 	overlap.tooltip_text = "Built-in overlap at each end, removed from the automatic length."
 	overlap.value_changed.connect(_on_spin.bind(pm, &"overlap", "Set block overlap"))
 	grid.add_child(overlap)
-	grid.add_child(_label("Offset Vert"))
-	var py := _spin(pm.offset_py, -100000.0, 100000.0, 0.01, " m")
+	# One "Offset" row with px (along the path), py (up) and pz (sideways, + = left).
+	var off_row := HBoxContainer.new()
+	var off_label := _label("Offset")
+	off_label.tooltip_text = "Move this block relative to its place on the path."
+	off_row.add_child(off_label)
+	var px := _spin(pm.offset_px, -100000.0, 100000.0, 0.01)
+	px.prefix = "px "
+	px.tooltip_text = "Slide this block along the path (px). The spacing of its neighbours is unchanged."
+	px.value_changed.connect(_on_spin.bind(pm, &"offset_px", "Set block px offset"))
+	off_row.add_child(px)
+	var py := _spin(pm.offset_py, -100000.0, 100000.0, 0.01)
+	py.prefix = "py "
 	py.tooltip_text = "Raise or lower this block (py)."
-	py.value_changed.connect(_on_spin.bind(pm, &"offset_py", "Set block vertical offset"))
-	grid.add_child(py)
-	grid.add_child(_label("Offset Horz"))
-	var pz := _spin(pm.offset_pz, -100000.0, 100000.0, 0.01, " m")
+	py.value_changed.connect(_on_spin.bind(pm, &"offset_py", "Set block py offset"))
+	off_row.add_child(py)
+	var pz := _spin(pm.offset_pz, -100000.0, 100000.0, 0.01)
+	pz.prefix = "pz "
 	pz.tooltip_text = "Shift this block sideways (pz; + = left of travel)."
-	pz.value_changed.connect(_on_spin.bind(pm, &"offset_pz", "Set block horizontal offset"))
-	grid.add_child(pz)
+	pz.value_changed.connect(_on_spin.bind(pm, &"offset_pz", "Set block pz offset"))
+	off_row.add_child(pz)
+	v.add_child(off_row)
 
 	var fit_row := HBoxContainer.new()
 	fit_row.add_child(_label("Along px"))
@@ -524,6 +545,11 @@ func _on_entry_scene(res: Resource, entry: Object) -> void:
 func _on_slot_scene(scene: PackedScene) -> void:
 	if scene:
 		_add_blocks_from([scene])
+
+
+func _on_repeat(on: bool) -> void:
+	_apply(_stitcher.sequence, &"repeat_pattern", on, "Toggle repeat")
+
 
 
 func _on_anchor(on: bool) -> void:

@@ -71,10 +71,10 @@ static func set_active(params: GameParams) -> void:
 @export var rollout := 10.0
 
 ## Speed cap (m/s).
-@export var max_speed := 100.0
+@export var max_speed := 300.0
 
 ## Sideways speed from A/D (m/s).
-@export var strafe_speed := 3.0
+@export var strafe_speed := 6.0
 
 # --- Turn (A / D) ---
 
@@ -232,3 +232,37 @@ static func set_active(params: GameParams) -> void:
 
 ## Beyond this distance from every path, no path is active (m).
 @export var max_path_distance := 20.0
+
+## A second path within this distance of the player makes the choice ambiguous, so
+## path following switches off (free roaming). Paths farther than this but inside
+## max_path_distance are ignored. Set it equal to max_path_distance for the strict
+## "any two paths in range" rule.
+@export var path_ambiguity_distance := 10.0
+
+
+
+
+# ==============================================================================
+#
+#   COLLISIONS  -  small lips, sliding along walls, rebound
+#
+# ==============================================================================
+
+@export_group("COLLISIONS")
+
+## Lips up to this height are ridden over without slowing down (m at player_scale 1).
+## Taller things are walls. 0 turns stepping off.
+@export var step_height := 0.4
+
+## How quickly the view and camera catch up after riding over a lip (higher =
+## quicker). The player's body moves up at once; only the view eases.
+@export var step_smooth_speed := 18.0
+
+## On hitting a wall the player keeps the part of his speed that runs along it and
+## slides frictionlessly, and is pushed this far back off it (m at player_scale 1).
+## 0 turns the rebound off.
+@export var wall_rebound_distance := 0.5
+
+## A hit has to push into the wall at least this fast to rebound (m/s at
+## player_scale 1), so grazing a wall just slides.
+@export var wall_rebound_min_speed := 3.0

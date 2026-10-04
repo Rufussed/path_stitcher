@@ -32,6 +32,13 @@ extends Resource
 		overlap = value
 		emit_changed()
 
+## Slide offset, px (m): moves the module along the path without changing its
+## neighbours' spacing.
+@export_range(-1000.0, 1000.0, 0.01, "or_less", "or_greater", "suffix:m") var offset_px := 0.0:
+	set(value):
+		offset_px = value
+		emit_changed()
+
 ## Height offset, py (m): raises or lowers the module along the path's up.
 @export_range(-1000.0, 1000.0, 0.01, "or_less", "or_greater", "suffix:m") var offset_py := 0.0:
 	set(value):

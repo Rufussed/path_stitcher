@@ -68,6 +68,14 @@ enum MarkerSnap { EXACT, NEAREST_JOINT }
 			_watch(e)
 		emit_changed()
 
+## On: the block sequence repeats to fill the space between the first and last
+## block. Off: it is placed once, each row's count being how many of that block
+## are placed (never stretched; any gap stays). Random sequences always fill.
+@export var repeat_pattern := true:
+	set(value):
+		repeat_pattern = value
+		emit_changed()
+
 ## Start the pattern this many blocks in, so neighbouring paths can continue
 ## each other's rhythm.
 @export_range(0, 1000, 1, "or_greater") var pattern_offset := 0:

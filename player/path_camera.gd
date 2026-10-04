@@ -67,7 +67,8 @@ func _physics_process(delta: float) -> void:
 func _follow_heading(p: GameParams, delta: float) -> void:
 	var player := get_parent()
 	var travel = player.get(&"travel_dir")
-	var base := axes.forward_flat * (float(travel) if travel != null else 1.0)
+	var base_v = player.get(&"base_forward")
+	var base: Vector3 = base_v if (base_v is Vector3 and base_v != Vector3.ZERO) else axes.forward_flat * (float(travel) if travel != null else 1.0)
 	var heading = player.get(&"follow_forward")
 	if not (heading is Vector3) or heading == Vector3.ZERO:
 		heading = base

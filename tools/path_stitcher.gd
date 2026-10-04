@@ -66,6 +66,12 @@ signal rebuilt
 	set(value):
 		start_offset = value
 		queue_rebuild()
+## Path distance (m) added to the end: negative stops the blocks before the end of
+## the path, positive carries them on past it (along the end tangent). 0 = the end.
+@export var end_offset := 0.0:
+	set(value):
+		end_offset = value
+		queue_rebuild()
 ## World: walls stay vertical, slopes shear (towers).
 ## Path: blocks pitch and bank with the path (roads on hills).
 @export var up_mode := UpMode.WORLD:
@@ -155,6 +161,8 @@ func _ready() -> void:
 	update_configuration_warnings()
 	rebuild()
 	_watch_sig = _watch_signature()
+	if not visibility_changed.is_connected(_on_visibility_changed):
+		visibility_changed.connect(_on_visibility_changed)
 
 
 # Bend never shows the Inspector's revert arrow: Linear and Full are both ordinary
@@ -223,6 +231,13 @@ func _watch_signature() -> String:
 	return str(parts)
 
 
+## Hiding the stitcher or its path turns its collision off (and showing it again
+## puts it back).
+func _on_visibility_changed() -> void:
+	if is_inside_tree():
+		rebuild()
+
+
 func clear() -> void:
 	var old := get_node_or_null(OUT_NAME)
 	if old:
@@ -244,6 +259,12 @@ func rebuild() -> void:
 	_mod_index = {}
 	_warnings = []
 	var items := _layout(length)
+	if sequence and sequence.end and (sequence.repeat_pattern != false or sequence.mode == PathSequence.Mode.RANDOM):
+		for k in range(maxi(items.size() - sequence.end_count, 0), items.size()):
+			items[k]["no_px"] = true # the last block's px already moved the end
+	if sequence and sequence.start:
+		for k in range(0, mini(sequence.start_count, items.size())):
+			items[k]["no_px"] = true # the first block's px already moved the start
 	_last_items = items
 	if items.is_empty():
 		summary = "Nothing to place.\n" + "\n".join(_warnings)
@@ -264,7 +285,7 @@ func rebuild() -> void:
 			var it: Dictionary = items[i]
 			var mod: Dictionary = _mods[it.mod]
 			var scale_x: float = (it.s1 - it.s0) / mod.stretch_base
-			var centre: float = (it.s0 + it.s1) * 0.5
+			var centre: float = (it.s0 + it.s1) * 0.5 + (0.0 if it.get("no_px", false) else mod.px)
 			var x0: float = mod.x0
 			var x1: float = mod.x1
 			var step := STEP
@@ -310,7 +331,7 @@ func rebuild() -> void:
 		mi.mesh = mesh
 		out.add_child(mi)
 		n_chunks += 1
-		if generate_collision and not faces.is_empty():
+		if generate_collision and not faces.is_empty() and is_visible_in_tree(): # a hidden path has no collision
 			var shape := ConcavePolygonShape3D.new()
 			shape.set_faces(faces)
 			# Single planes (floors, walls) must collide from either side.
@@ -359,18 +380,23 @@ func _layout(length: float) -> Array:
 
 	var seq := sequence
 	var gen := _Gen.new(seq, self)
+	# Repeat off: the block sequence is placed once and the last block simply follows it.
+	var repeating: bool = seq.repeat_pattern != false or seq.mode == PathSequence.Mode.RANDOM
 	var a := start_offset
-	var b := length
+	var b := length + end_offset # end_offset < 0 stops the blocks short of the path end
 	var lead: Array = []
 	var trail: Array = []
 	var fixed: Array = []
 	if seq.start and _module(seq.start) >= 0:
+		a += _mods[_module(seq.start)].px # the first block's px moves where the sequence starts
 		for _i in seq.start_count:
 			lead.append(_module(seq.start))
 	if seq.end and _module(seq.end) >= 0:
 		var e := _module(seq.end)
 		var e_len: float = _mods[e].length
-		if seq.anchor_end:
+		if repeating:
+			b += _mods[e].px # the last block's px moves where it (and so the pattern) ends
+		if seq.anchor_end and repeating:
 			# The last blocks sit unstretched against the path end.
 			var pos := b
 			for _i in seq.end_count:
@@ -423,7 +449,20 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 
 	var fit := sequence.fit
 	var mids: Array = []
-	if not gen.is_empty():
+	var repeating: bool = sequence.repeat_pattern != false or sequence.mode == PathSequence.Mode.RANDOM
+	if not repeating:
+		fit = PathSequence.Fit.NONE # a single pass is never stretched
+		if not gen.is_empty() and not gen.placed_once:
+			gen.placed_once = true
+			var used := fixed_len
+			for m in gen.flat:
+				var m_len: float = _mods[m].length
+				if used + m_len > span + 0.001:
+					_warnings.append("%d block(s) of the single pass do not fit between the first and last block and were left out." % (gen.flat.size() - mids.size()))
+					break
+				mids.append(m)
+				used += m_len
+	if repeating and not gen.is_empty():
 		var probe := gen.copy()
 		var total := fixed_len
 		var overflow := -1
@@ -465,7 +504,8 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 		var trail_len := 0.0
 		for m in trail:
 			trail_len += _mods[m].length
-		pos = b - trail_len
+		if repeating:
+			pos = b - trail_len # otherwise the last block just follows the sequence
 		for m in trail:
 			var l: float = _mods[m].length
 			items.append({"mod": m, "s0": pos, "s1": pos + l})
@@ -530,9 +570,11 @@ func _render_cost(out: Node3D) -> String:
 		if c is MeshInstance3D and c.mesh:
 			for s in c.mesh.get_surface_count():
 				draws += 1
+				@warning_ignore("integer_division")
 				tris += c.mesh.surface_get_array_index_len(s) / 3
 		elif c is MultiMeshInstance3D and c.multimesh and c.multimesh.mesh:
 			draws += c.multimesh.mesh.get_surface_count()
+			@warning_ignore("integer_division")
 			tris += c.multimesh.mesh.surface_get_array_index_len(0) / 3 * c.multimesh.instance_count
 	var score := draws + tris / 10000.0
 	return "Render cost %d  (%d draw calls + %.2fM triangles / 10k, all in view)" % [roundi(score), draws, tris / 1000000.0]
@@ -559,6 +601,7 @@ func relative_costs() -> Dictionary:
 				for g in _mods[mi].groups:
 					if not g.visible:
 						continue
+					@warning_ignore("integer_division")
 					tris += g.arrays[Mesh.ARRAY_INDEX].size() / 3
 					if not (linear and g.gpu):
 						keys[[g.material, g.collider, g.visible]] = true
@@ -613,6 +656,7 @@ func _module(pm: PathModule) -> int:
 			var x1: float = data.x1
 			data.length = pm.length if pm.length > 0.0 else (x1 - x0) - 2.0 * pm.overlap
 			data.stretch_base = data.length # mesh scale along the path is (joint span) / stretch_base
+			data.px = pm.offset_px # slides the block along the path (the curve), applied when placing
 			if pm.stretch_to_length and pm.length > 0.0 and (x1 - x0) - 2.0 * pm.overlap > 0.001:
 				data.stretch_base = (x1 - x0) - 2.0 * pm.overlap # stretch the mesh itself to the set length
 			if data.length <= 0.001:
@@ -853,6 +897,7 @@ func _build_instances(out: Node3D, rows: Dictionary) -> int:
 	for mi in rows:
 		var mod: Dictionary = _mods[mi]
 		var frames: PackedVector3Array = rows[mi]
+		@warning_ignore("integer_division")
 		var n := frames.size() / 6
 		if n == 0:
 			continue
@@ -880,7 +925,11 @@ func _build_instances(out: Node3D, rows: Dictionary) -> int:
 			if not (g.visible and g.gpu):
 				continue
 			var mesh := ArrayMesh.new()
-			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, g.arrays)
+			var arrays: Array = g.arrays
+			if flip_side:
+				arrays = arrays.duplicate()
+				arrays[Mesh.ARRAY_INDEX] = _reverse_winding(g.arrays[Mesh.ARRAY_INDEX])
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 			mesh.surface_set_material(0, _gpu_material(g.material, data, mod.stretch_base * 0.5))
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -957,11 +1006,23 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 			out_t[i * 4 + 1] = t.y
 			out_t[i * 4 + 2] = t.z
 	arr[Mesh.ARRAY_VERTEX] = out_v
+	if flip_side and src[Mesh.ARRAY_INDEX] != null:
+		arr[Mesh.ARRAY_INDEX] = _reverse_winding(src[Mesh.ARRAY_INDEX]) # a mirror turns triangles inside out
 	if normals != null:
 		arr[Mesh.ARRAY_NORMAL] = out_n
 	if tangents != null:
 		arr[Mesh.ARRAY_TANGENT] = out_t
 	return arr
+
+
+## The triangle indices with each triangle's winding reversed. Flip Side mirrors
+## the geometry, which would otherwise leave every face pointing the wrong way.
+func _reverse_winding(idx: PackedInt32Array) -> PackedInt32Array:
+	var out := idx.duplicate()
+	for i in range(0, idx.size() - 2, 3):
+		out[i + 1] = idx[i + 2]
+		out[i + 2] = idx[i + 1]
+	return out
 
 
 ## Concatenates surface arrays into one indexed surface. Only attributes every
@@ -1044,6 +1105,7 @@ class _Gen:
 	var max_repeat := 0
 	var last := -1
 	var run := 0
+	var placed_once := false # Repeat off: the single pass has been placed
 
 	func _init(seq: PathSequence = null, host = null) -> void:
 		if seq == null:

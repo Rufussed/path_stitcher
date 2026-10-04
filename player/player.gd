@@ -29,6 +29,11 @@ extends CharacterBody3D
 ## end of the previous one instead of restarting it.
 const KICK_SHOTS: Array[StringName] = [&"kick_a_shot", &"kick_b_shot"]
 
+## A wall rebound pushes off at this decay rate (1/s); its outward speed is set so the
+## total push is `wall_rebound_distance`. One rebound per cooldown (s).
+const REBOUND_RATE := 10.0
+const REBOUND_COOLDOWN := 0.5
+
 ## Current forward speed (m/s, world units), always >= 0.
 var speed := 0.0
 ## Which way along the path counts as forward: +1 official forward, -1 backtracking.
@@ -44,6 +49,24 @@ var airborne := false
 ## Heading the camera follows: the travel direction turned by the A/D turn
 ## (not by camera steering, which comes from the camera itself).
 var follow_forward := Vector3.ZERO
+## The movement forward before the A/D turn: the path's forward (times travel_dir)
+## on a path, the free heading in free roam. The camera re-centres on it.
+var base_forward := Vector3.ZERO
+## True while no single path is in range: forward is just where he is facing.
+var free_roam := false
+## Left Shift toggles following the path (free roaming when off). Starts off, and
+## switches itself off when no single path is in range.
+var path_following := false
+## The view and camera ease up after the body rides over a lip (negative = they are
+## still catching up).
+var _step_offset := 0.0
+var _cam_base_y := 0.0
+## Outward push after hitting a wall (decays), the cooldown before the next one, and
+## whether he touched a wall last frame.
+var _rebound := Vector3.ZERO
+var _rebound_cooldown := 0.0
+var _was_on_wall := false
+var _free_heading := Vector3.ZERO
 var _fade_rate := 0.0
 var _s_was_down := false
 var _brake_hold := 0.0
@@ -79,6 +102,18 @@ func _ready() -> void:
 		if player.has_animation(&"kick"):
 			_kick_length = player.get_animation(&"kick").length
 	_apply_scale(GameParams.get_active().player_scale)
+	var pivot := get_node_or_null(^"CameraPivot")
+	if pivot:
+		_cam_base_y = pivot.position.y
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SHIFT and event.location == KEY_LOCATION_LEFT:
+		if path_following:
+			path_following = false
+		elif axes.has_path:
+			path_following = true # only when exactly one path is in range
+
 
 
 func _physics_process(delta: float) -> void:
@@ -87,6 +122,8 @@ func _physics_process(delta: float) -> void:
 	if s != _applied_scale:
 		_apply_scale(s)
 	airborne = not is_on_floor()
+	_rebound = _rebound.lerp(Vector3.ZERO, 1.0 - exp(-REBOUND_RATE * delta))
+	_rebound_cooldown = maxf(_rebound_cooldown - delta, 0.0)
 	_update_kick(p, s, delta)
 
 	var s_down := Input.is_physical_key_pressed(KEY_S)
@@ -119,14 +156,18 @@ func _physics_process(delta: float) -> void:
 	# as it was at take-off (move_and_slide only changes it on a collision).
 	if not airborne:
 		var move := fwd * speed + rgt * strafe * p.strafe_speed * s
-		velocity.x = move.x
-		velocity.z = move.z
+		if _rebound.length_squared() > 0.0001:
+			var rn := _rebound.normalized()
+			var into := move.dot(rn)
+			if into < 0.0:
+				move -= rn * into # while pushing off a wall, don't push back into it
+		velocity.x = move.x + _rebound.x
+		velocity.z = move.z + _rebound.z
+		_try_step(p, s, delta)
+	var v_before := Vector3(velocity.x, 0.0, velocity.z)
 	move_and_slide()
+	_wall_response(p, s, v_before)
 
-	# A wall takes the speed away rather than letting it build up against it.
-	if is_on_wall():
-		var rv := get_real_velocity()
-		speed = minf(speed, maxf(0.0, Vector3(rv.x, 0.0, rv.z).dot(fwd)))
 
 	# Face along the movement forward, then lean: sideways about the direction
 	# of travel (A/D) and backwards about the right axis (braking). Visual's
@@ -142,11 +183,27 @@ func _physics_process(delta: float) -> void:
 	visual.global_basis = Basis(rgt, brake_lean) * Basis(fwd, lean) * _facing \
 			* Basis.from_scale(Vector3.ONE * s)
 
+	# After riding over a lip the view (and camera) ease up to the new height.
+	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-p.step_smooth_speed * delta))
+	visual.position.y = _base_visual_pos.y * s + _step_offset
+	var pivot := get_node_or_null(^"CameraPivot")
+	if pivot:
+		pivot.position.y = _cam_base_y + _step_offset
+
 
 ## Movement forward on the ground: the travel direction along the path, turned
 ## by the A/D turn and the camera orbit, flipping the travel direction when
 ## turned far enough round. Also updates `follow_forward` for the camera.
 func _ground_forward(p: GameParams, strafe: float, delta: float) -> Vector3:
+	if path_following and not axes.has_path:
+		path_following = false # too far from the paths, or several in range: free roaming
+	if not path_following:
+		return _free_forward(p, strafe, delta)
+	if free_roam:
+		# Back on a single path: forward is whichever way along it he is facing.
+		free_roam = false
+		travel_dir = 1.0 if _free_heading.dot(axes.forward_flat) >= 0.0 else -1.0
+		turn_yaw = 0.0
 	# A/D turn: yaw away from the forward while held (D = right), snapping back
 	# on release. The limit only stops it growing, so a turn re-expressed by a
 	# direction flip is never yanked.
@@ -178,8 +235,96 @@ func _ground_forward(p: GameParams, strafe: float, delta: float) -> Vector3:
 			turn_yaw = wrapf(turn_yaw - turn_sign * PI, -PI, PI)
 
 	var base := axes.forward_flat * travel_dir
+	base_forward = base
 	follow_forward = base.rotated(Vector3.UP, turn_yaw)
 	return base.rotated(Vector3.UP, turn_yaw + cam_yaw)
+
+
+## Free roam (no path, or more than one, within range): forward is the way he
+## is facing. A/D turn that heading for good (no snap-back); the camera orbit
+## steering still adds its temporary turn.
+func _free_forward(p: GameParams, strafe: float, delta: float) -> Vector3:
+	if not free_roam:
+		free_roam = true
+		_free_heading = _facing_forward(p)
+		turn_yaw = 0.0
+	if strafe != 0.0:
+		_free_heading = _free_heading.rotated(Vector3.UP, -strafe * deg_to_rad(p.turn_speed) * delta)
+	var cam := get_node_or_null(^"CameraPivot")
+	var cam_yaw: float = cam.orbit_yaw * p.camera_steer_amount if (p.steer_with_camera and cam != null) else 0.0
+	base_forward = _free_heading
+	follow_forward = _free_heading
+	return _free_heading.rotated(Vector3.UP, cam_yaw)
+
+
+## The horizontal direction the skater is currently facing.
+func _facing_forward(p: GameParams) -> Vector3:
+	var f := -(Basis(Vector3.UP, -deg_to_rad(p.model_yaw_offset)) * _facing).z
+	f.y = 0.0
+	return f.normalized() if f.length() > 0.001 else Vector3.FORWARD
+
+
+## Lets him ride over a small lip in his way (up to `step_height`): the body moves
+## up at once and the horizontal speed is untouched; only the view eases up, via
+## `_step_offset`.
+func _try_step(p: GameParams, s: float, delta: float) -> void:
+	var h := Vector3(velocity.x, 0.0, velocity.z)
+	if p.step_height <= 0.0 or h.length() < 0.05:
+		return
+	var motion := h * delta
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, motion, hit) or hit.get_normal().y > 0.7:
+		return # nothing in the way, or a slope he can simply walk up
+	var max_up := p.step_height * s
+	var raised := global_transform.translated(Vector3.UP * max_up)
+	if test_move(raised, motion):
+		return # taller than the step height: a real wall
+	var down := KinematicCollision3D.new()
+	if not test_move(raised.translated(motion), Vector3.DOWN * max_up * 1.02, down):
+		return # nothing to stand on past the lip
+	var rise := clampf(max_up - down.get_travel().length() + 0.002, 0.0, max_up)
+	if rise <= 0.0:
+		return
+	global_position.y += rise
+	_step_offset -= rise
+
+
+## After moving: a wall keeps the part of his speed that runs along it (the engine
+## slides him, frictionless), a near head-on hit takes his speed away so it can't
+## build up against the wall, and a hard enough first hit pushes him back off it
+## by `wall_rebound_distance` (once per `REBOUND_COOLDOWN`).
+func _wall_response(p: GameParams, s: float, v_before: Vector3) -> void:
+	var touching := false
+	var n_best := Vector3.ZERO
+	var inward_best := 0.0
+	for i in get_slide_collision_count():
+		var n := get_slide_collision(i).get_normal()
+		if n.y > 0.7:
+			continue # floor
+		var nh := Vector3(n.x, 0.0, n.z)
+		if nh.length() < 0.001:
+			continue
+		touching = true
+		nh = nh.normalized()
+		var inward := -v_before.dot(nh)
+		if inward > inward_best:
+			inward_best = inward
+			n_best = nh
+	var first_contact := touching and not _was_on_wall
+	_was_on_wall = touching
+	if not first_contact or inward_best <= 0.0:
+		return
+	var vlen := v_before.length()
+	if vlen > 0.001:
+		var along := (v_before + n_best * inward_best).length() # the part along the wall
+		if along < 0.25 * vlen:
+			speed = minf(speed, along)
+	if p.wall_rebound_distance > 0.0 and not airborne and _rebound_cooldown <= 0.0 \
+			and inward_best >= p.wall_rebound_min_speed * s:
+		# An outward speed that decays at REBOUND_RATE covers about the set distance.
+		_rebound = n_best * p.wall_rebound_distance * s * REBOUND_RATE
+		_rebound_cooldown = REBOUND_COOLDOWN
+
 
 
 ## Resizes the collider and moves the model's feet to its base; the model

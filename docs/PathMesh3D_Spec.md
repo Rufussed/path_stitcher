@@ -89,7 +89,7 @@ The wedge and shear both vary along the spiral, so they are computed for each mo
 
 ## Current implementation
 
-`PathStitcher` (`res://tools/path_stitcher.gd`, formerly `PathMeshDeformer`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. In `main.tscn` the nodes are `SpiralPath/TowerStitcher` and `HillRoadPath/HillRoadStitcher`, each a child of the path it follows. What it places comes from a `PathSequence` (see "Module sequences"); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
+`PathStitcher` (`res://tools/path_stitcher.gd`, formerly `PathMeshDeformer`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. In `main.tscn` the nodes are `SpiralPath/TowerStitcher` (the tower: 50 m radius at the base, shrinking 5 m per revolution and stopping at 11 m after 7.8 revolutions, 124.8 m up), `BridgePath/BridgeStitcher` (a level bridge from the top of the tower) and `Tower2Path/Tower2Stitcher` (the tower path reversed, top to bottom, set down where the bridge ends), each a child of the path it follows. What it places comes from a `PathSequence` (see "Module sequences"); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
 
 | Property | Type | Purpose |
 | --- | --- | --- |
@@ -97,8 +97,9 @@ The wedge and shear both vary along the spiral, so they are computed for each mo
 | `sequence` | PathSequence | The building blocks (edited in the BUILDING BLOCKS section) |
 | `bend` | LINEAR (default) / FULL | How a block follows the path between its joints (see "Bend"). Shown as two toggle buttons, Linear | Full |
 | `start_offset` | float, 0.0 | Path distance of the first block's start joint |
+| `end_offset` | float, 0.0 | Path distance added to the end: negative stops the blocks before the end of the path, positive carries them on past it along the end tangent |
 | `up_mode` | WORLD / PATH | Vertical shear, or pitch and bank with the path |
-| `flip_side` | bool | Mirror blocks across the path line (pz becomes −pz): the +Z side faces right instead of left. Offsets mirror with it. No visible change for a block that is symmetric about its centre line |
+| `flip_side` | bool | Mirror blocks across the path line (pz becomes −pz): the +Z side faces right instead of left. Offsets mirror with it, and triangle winding is reversed so lighting stays correct. No visible change for a block that is symmetric about its centre line |
 | `collision_prefix` | String, `Col-` | Collision only |
 | `visible_collision_prefix` | String, `ColVis-` | Visible and collision |
 | `generate_collision` | bool | Build StaticBody3D trimesh shapes |
@@ -117,7 +118,7 @@ How it works:
 
 The output sits under an unowned `_Generated` child. It is rebuilt on load and never saved into the scene, which keeps `main.tscn` small.
 
-Status: deformation works across the whole spiral (550 modules) and the hill road (38 modules); `Col-` / `ColVis-` collision works, and generated trimesh shapes collide from both sides (`backface_collision`) so single-plane floors and walls are solid.
+Status: deformation works across the tower, the bridge and the second tower; `Col-` / `ColVis-` collision works, and generated trimesh shapes collide from both sides (`backface_collision`) so single-plane floors and walls are solid.
 
 ### Up mode
 
@@ -135,7 +136,7 @@ Modules deform only at their vertices: a single-quad road piece cannot bend with
 | `FULL` | Every vertex is mapped through the curve (frames sampled every 0.05 m), so a block bends smoothly with the path. Best for organic and sculpted forms | Unique deformed meshes, merged by material and chunked (see "Draw-call efficiency") |
 | `LINEAR` (default) | Only the block's two end frames (position, left and up at the start and end joint) are used, and every vertex between them is blended in a straight line: wedge and shear, no bend. Seams still meet exactly, because neighbours share the joint frame. On a tight curve a straight block cuts across it like a chord (about 0.14 m at most on the tower). Best for architectural blocks | GPU instancing (below) |
 
-Both modes use the same maths per vertex; Linear simply uses a two-entry frame table instead of one every 0.05 m. Changing any SHAPE, COLLISION or OUTPUT setting rebuilds the output automatically (about 0.3 s).
+Both modes use the same maths per vertex; Linear simply uses a two-entry frame table instead of one every 0.05 m. Changing any SHAPE, COLLISION or OUTPUT setting rebuilds the output automatically (about 0.3 s). **Hidden paths:** hiding a stitcher or its path turns its collision off (the generated meshes are hidden with it), and path following ignores a hidden path.
 
 ### GPU instancing (Bend: Linear)
 
@@ -169,7 +170,7 @@ Source parts stay separate in Blender; merging happens on every rebuild.
 
 `PathGroundDraper` (`res://tools/path_ground_draper.gd`), a child of a Path3D, has a **Drape** button. It optionally re-spaces the points (`resample_spacing`), ray-casts each point straight down onto physics collision, sets its height to the hit plus `height_offset`, rebuilds smooth handles, and with `bank_to_ground` sets each point's tilt so the curve's up vector matches the ground normal. Generated modules are ignored, and the change is one undoable editor action. Use with `up_mode = PATH`.
 
-On the Tower of Babel hill (a 20 m cone frustum whose top, at Y = 16, buries the tower's first turn), the draped road sits within 3 cm of the slope and banks 3.5° to 5.6°; at the ridge crease the single-quad road piece floats up to 0.3 m.
+On the Tower of Babel hill (the hill road has since been removed from the scene) (a 20 m cone frustum whose top, at Y = 16, buries the tower's first turn), the draped road sits within 3 cm of the slope and banks 3.5° to 5.6°; at the ridge crease the single-quad road piece floats up to 0.3 m.
 
 ## Module sequences
 
@@ -185,18 +186,26 @@ Building blocks are Resources, stored inside the scene (or saved as a `.tres` an
 | | `length` (float, 0 = auto) | Joint-to-joint length along the path (px); 0 uses the mesh's X extent minus `overlap` at each end |
 | | `overlap` (float) | Built-in overlap at each end (Block1: 0.5 m, giving 5 m from a 6 m mesh) |
 | | `stretch_to_length` (bool) | Along px, with a set `length`: off = Place (the block keeps its size and is placed every `length`; a longer length leaves gaps), on = Stretch (the block's mesh is stretched along the path to fill `length`, measured against its natural length: mesh extent minus overlap). Has no effect while `length` is 0 (auto) |
-| | `offset_py`, `offset_pz` (float) | Per-block offset: py raises or lowers the block, pz shifts it sideways (+ = left of travel). Shown as Offset Vert and Offset Horz in the Inspector |
+| | `offset_px`, `offset_py`, `offset_pz` (float) | Per-block offset, shown as one Offset row (px, py, pz). px slides the block along the path (following the curve, not a straight line), py raises or lowers it, pz shifts it sideways (+ = left of travel). For the First and Last block, px also moves where the sequence starts and ends (below) |
 | `PathPatternEntry` | `module` (PathModule), `count` (int ≥ 1) | One row of the block sequence: `count` copies in a row, or the block's weight in random mode |
 | `PathSequence` | `start` (PathModule, optional), `start_count` (int ≥ 1) | First block, placed `start_count` times at the path start |
 | | `pattern` (Array of PathPatternEntry) | The block sequence, repeated to fill the path |
 | | `mode` (PATTERN / RANDOM) | Repeat in order, or draw at random using each row's count as its weight |
 | | `end` (PathModule, optional), `end_count` (int ≥ 1), `anchor_end` | Last block, placed `end_count` times at the path end |
 | | `fit` (enum) | How the blocks meet the end exactly (below) |
+| | `repeat_pattern` (bool, default on) | On: the block sequence repeats to fill the space between the first and last block. Off: it is placed once, each row's count being how many of that block are placed, never stretched; the last block then simply follows it. Random sequences always fill |
 | | `pattern_offset` (int) | Start the pattern part-way through, so neighbouring paths can continue each other's rhythm |
 | | `random_seed`, `max_repeat` | RANDOM mode: the seed, and the longest run of one block |
 | | `markers`, `marker_snap` | Blocks at specific distances (below) |
 
 `PathStitcher.sequence` holds the `PathSequence`. When a PathStitcher is added as a child of a `Path3D`, its `path_node` is `..` by default, so it follows that parent with nothing to set (an empty `path_node` also falls back to the parent path). A per-block `up_mode` / `flip_side` override is planned.
+
+### First and last block positions, and Repeat
+
+- **First block px:** shifts where the first block sits, and the block sequence starts only after it. With px = 20 the first block occupies 20–26 m and the pattern begins at 26 m (after all `start_count` copies).
+- **Last block px (Repeat on):** shifts where the last block sits and so where the repeating pattern stops. Px +50 puts the last block 50 m past the path end and the pattern runs on to it; px −40 stops the pattern 40 m early. Anchor Last block to end of path still places it unstretched at that position.
+- **Repeat off:** the block sequence is placed once (each row's × is the exact number of copies), the first block px still moves the start, and the last block follows the sequence directly. Anchor and the last block's px are then not used to find the end (the last block's px is just a slide along the path). Blocks of the single pass that do not fit before the last block are left out with a warning.
+- **End Offset** (SHAPE group) moves the end of the whole layout: negative stops short of the path end, positive runs past it.
 
 ### Layout along the path
 
@@ -255,7 +264,7 @@ The path is split at markers into segments: start → marker 1 → … → end. 
 
 All setup happens in the **BUILDING BLOCK SEQUENCE** box at the top of a PathStitcher's Inspector, drawn by the **PathStitcher Inspector** editor plugin (`res://addons/path_stitcher/`). Godot's standard Inspector can only show lists of resources as nested sub-inspectors, so the plugin draws compact one-line rows instead. Each section sits in the editor's standard sub-inspector box.
 
-The SHAPE group sits directly under Path Node, with **Bend** as two toggle buttons on one line (Linear | Full, Linear on by default; each button has a tooltip, Linear's reads "Full instancing - GPU optimized"), inside one dark panel together with a **Relative render cost** line under it that shows both modes' costs side by side, each aligned under its button (draw calls + triangles / 10,000 for the current layout, as if everything were in view, shown as a percentage of the more expensive mode, which reads 100%; Linear and Full can be compared without switching, and it refreshes after every rebuild). The Bend line never shows the Inspector's revert arrow, since both choices are ordinary. Then Start Offset, Up Mode and Flip Side. The building-block box follows, then Rebuild / Clear, the summary, COLLISION and OUTPUT.
+The SHAPE group sits directly under Path Node, with **Bend** as two toggle buttons on one line (Linear | Full, Linear on by default; each button has a tooltip, Linear's reads "Full instancing - GPU optimized"), inside one dark panel together with a **Relative render cost** line under it that shows both modes' costs side by side, each aligned under its button (draw calls + triangles / 10,000 for the current layout, as if everything were in view, shown as a percentage of the more expensive mode, which reads 100%; Linear and Full can be compared without switching, and it refreshes after every rebuild). The Bend line never shows the Inspector's revert arrow, since both choices are ordinary. Then Start Offset, End Offset, Up Mode and Flip Side. The building-block box follows, then Rebuild / Clear, the summary, COLLISION and OUTPUT.
 
 ```
 +- BUILDING BLOCK SEQUENCE ------------------ [ ] Randomize -+
@@ -263,10 +272,11 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 |   ≡     [ Block1.blend ......... v ]  ×[ 4 ]  >   (trash) |
 |   ≡     [ Block2.blend ......... v ]  ×[ 2 ]  v   (trash) |
 |           Length (px) [ 0.00 m ]  Overlap [ 0.50 m ]       |
-|           Offset Vert [ 0.00 m ]  Offset Horz [ 0.00 m ]   |
+|           Offset  px [ 0.00 ]  py [ 0.00 ]  pz [ 0.00 ]    |
 |           Along px    [ Place v ]  (Place | Stretch)      |
 |           Auto length 5.00 m (mesh extent minus overlap)   |
 |         [ <empty> .............. v ]  ×[ 1 ] (faded)       |
+|         [x] Repeat between First and Last                   |
 |  Last   [ EndBlock.blend ....... v ]  ×[ 3 ]  >           |
 |         [ ] Anchor Last block to end of path               |
 |  Fit    [ Stretch v ]     (Randomize on: Seed, Max repeat) |
@@ -278,7 +288,8 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 ```
 
 - **One column layout:** First, Last and every block row share the same columns (label or grip, scene box, multiplier, expander, remove), so the scene boxes line up.
-- **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a compact scene picker (shows the file name; Quick Load, Load, Clear, Show in FileSystem, or drag a `.blend` / `.glb` / `.gltf` / `.tscn` from the FileSystem dock onto it), the multiplier (`×N` copies; a weight when Randomize is on), an expander (>) for that block's length, overlap, Offset Vert and Offset Horz, an **Along px** dropdown (Place or Stretch, see `stretch_to_length`), and a remove button. The picker is a custom control because Godot's resource picker shows a large thumbnail for scenes.
+- **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a compact scene picker (shows the file name; Quick Load, Load, Clear, Show in FileSystem, or drag a `.blend` / `.glb` / `.gltf` / `.tscn` from the FileSystem dock onto it), the multiplier (`×N` copies; a weight when Randomize is on), an expander (>) for that block's length, overlap, Offset (px, py, pz), an **Along px** dropdown (Place or Stretch, see `stretch_to_length`), and a remove button. The picker is a custom control because Godot's resource picker shows a large thumbnail for scenes.
+- **Repeat between First and Last:** the checkbox under the empty slot (hidden when Randomize is on); see "First and last block positions, and Repeat".
 - **First / Last multipliers:** `PathSequence.start_count` and `end_count` (min 1) repeat the first or last block, for example three end caps. With Anchor on, the repeated last blocks are all placed unstretched against the path end.
 - **Empty slot instead of an Add button:** the list always ends with an empty picker. Choosing a scene in it, or dropping scene files on it (several files add one row each, one undo step), turns it into a block row and a new empty slot appears below. Dropping on a filled row's picker replaces that row's scene. Dragging nodes from the Scene dock is not supported.
 - **First / Last block:** the same picker, expander and a trash button (it empties the slot and keeps the multiplier; one undo step); **Anchor Last block to end of path** (its own line under the Last row) pins the last block to the path end.
@@ -312,6 +323,16 @@ The provider also reports useful by-products of the same query: the path distanc
 
 **Direction of travel.** The provider's forward always points along increasing s. Travelling the other way is the controller's choice: the test player keeps a `travel_dir` (+1 / −1) and flips it when turned more than 90° from forward, so the path's backward direction becomes its forward (see "Test player and tuning").
 
+### Following a path, or free roaming
+
+The player starts **free roaming**: forward is simply the way the skater is facing, and A/D turn that heading for good (no snap-back to a path). **Left Shift** toggles path following; a small arrow at the bottom centre of the screen (the `Hud` node) is white while following and grey when off.
+
+- Following only switches on when the nearest path is within `max_path_distance` (20 m) and no second path is within `path_ambiguity_distance` (10 m, a `GameParams` setting; set it equal to `max_path_distance` for the strict "any two paths in range" rule).
+- It switches itself off when the player gets too far from every path, or a second path comes within the ambiguity distance (a fork, or two paths side by side). He is then free roaming and Left Shift turns it on again once a single path is clear.
+- On first picking up a path (from free roaming, or at the start) the path's own direction defines forward; he then follows it in whichever direction he was facing. The "keep forward meaning the way I was going" flip only applies when switching from one path to another.
+- Hidden paths are ignored (and a hidden stitcher has no collision).
+- Reversing and returning still work while following: turning past `reverse_angle` makes the path's backward direction forward, and past `forward_return_angle` makes it forward again.
+
 ## Branching paths
 
 Whichever path the player is closest to supplies the movement axes. At a fork the player can steer towards either branch; as they move closer to one, that branch takes over. No branch is ever chosen for them.
@@ -327,7 +348,7 @@ Whichever path the player is closest to supplies the movement axes. At a fork th
 
 **Opposed branches.** If two paths meet head-on (their forwards more than 90° apart), the blend would cancel out. Before blending, a path's axes are flipped when its forward points away from the current forward. This keeps "forward" meaning "the way I was going".
 
-**No path in range.** Beyond `max_distance` from every path, the follower returns its last axes (or world axes, as a setting) and reports `has_path = false`.
+**No path in range, or an ambiguous choice.** Beyond `max_distance` from every path, or when a second path is within `ambiguity_distance`, the follower reports `has_path = false` and the player free roams (see "Following a path, or free roaming"). Because the ambiguity distance is larger than `blend_distance`, the blending above only acts when exactly one path is a candidate, so it is effectively unused in the test scene.
 
 ```
                          blend zone
@@ -356,6 +377,7 @@ Two small nodes, kept separate from the stitcher so either can be used alone. Th
 | `switch_margin` | float, 0.5 m | Hysteresis before changing path |
 | `blend_distance` | float, 2 m | Width of the blend zone between paths |
 | `max_distance` | float, 20 m | Beyond this, no path is active |
+| `ambiguity_distance` | float, 10 m | A second path this close makes the choice ambiguous: no path is active (free roaming) |
 | `use_flat_forward` | bool | Return `forward_flat` as `forward` |
 | `path_changed(path)` | signal | Fired when the active path changes |
 
@@ -385,10 +407,12 @@ The Tower of Babel test uses a skateboarding player that consumes the movement a
 | Arrow keys | Orbit the camera; left/right also steer the movement forward (`steer_with_camera`), easing back on release |
 | − / + | Zoom; held for `camera_zoom_hold` then eases back |
 | Space | Jump |
+| Left Shift | Toggle path following / free roaming (arrow at the bottom centre of the screen) |
 
-- **Speed model:** each kick adds `kick_impulse` up to `max_speed`; speed fades linearly to zero over `rollout` seconds from the last impulse; walls remove speed.
+- **Speed model:** each kick adds `kick_impulse` up to `max_speed`; speed fades linearly to zero over `rollout` seconds from the last impulse; a wall keeps the part of the speed along it (below), and a near head-on hit takes the speed away so it cannot build up against the wall.
 - **Airborne:** horizontal velocity is frozen at take-off; no kicking, turning or braking; a kick in progress fades to skate over `kick_air_cancel_time`.
 - **Camera follow:** dead zone up to `camera_follow_start` (20°) between camera and skater heading, then a linear ramp to the skater's `turn_speed` at `camera_follow_lock` (30°), which is a hard limit; re-centres on the travel forward with a smooth damp over `camera_recenter_time`. The camera follows the A/D heading but not camera steering (which comes from the camera itself).
+- **Lips and walls (COLLISIONS in `GameParams`):** `step_height` (0.4 m at player_scale 1): a low obstacle in his way is stepped over with no loss of speed; the body rises at once and the view and camera ease up at `step_smooth_speed`. On hitting a wall he keeps the component of his speed that runs along it and slides along it without friction (the engine slide, with the old speed clamp removed). A first hit pushing into the wall at least `wall_rebound_min_speed` (3 m/s) also pushes him back off along the surface normal by `wall_rebound_distance` (0.5 m, 0 = off), once per 0.5 s. Rebound is ground only.
 - **Board trail:** a `GPUTrail3D` node (the GPUTrail addon by celyk, MIT, `res://addons/GPUTrail/`) named `BoardTrail` under the skater, at the tail end of the board.
 - **Player scale:** `player_scale` multiplies the model, collider, camera distances, speeds and jump; with `scale_gravity` gravity scales too, so a small player moves like a normal-sized person and the world reads as giant.
 
@@ -416,7 +440,7 @@ The Tower of Babel test uses a skateboarding player that consumes the movement a
 - [x] Centred-Z modules, 5 m spacing with overlap, trimesh collision
 - [x] `Col-` / `ColVis-` naming, double-sided trimesh collision
 - [ ] Close visual check of the seams on the spiral
-- [x] Movement axes: `PathAxesFollower` (nearest path in the `movement_paths` group, hysteresis, blending), skater player on the hill road and spiral
+- [x] Movement axes: `PathAxesFollower` (nearest path in the `movement_paths` group, hysteresis, blending), skater player on the tower and bridge
 - [ ] `PathAxesField` (shared query node) — the follower currently queries the group directly
 - [ ] Branching: a test fork to verify hysteresis, blending and opposed-branch handling in play (implemented, untested)
 - [x] Ends-only deformation: Bend: Linear
@@ -425,6 +449,10 @@ The Tower of Babel test uses a skateboarding player that consumes the movement a
 - [x] Skater player and tuning (see "Test player and tuning")
 - [x] Module sequences: `PathModule` / `PathSequence` resources, first / sequence / last blocks, fit modes, anchored end, weighted random sequences, markers, `PathMarker`, live rebuild, summary readout
 - [x] BUILDING BLOCKS Inspector (editor plugin): reorderable rows, counts, per-block length / overlap / py / pz offsets, undo
+- [x] End Offset; per-block Offset (px along the curve, py, pz); First/Last px move the sequence start and end; Repeat toggle
+- [x] Free roaming and Left Shift path following, with the HUD arrow; ambiguity distance; hidden paths ignored
+- [x] Step over small lips, frictionless wall sliding and rebound
+- [x] Level bridge from the tower top to a second, reversed tower
 - [ ] Per-module `up_mode` / `flip_side` overrides on `PathModule`
 - [ ] Closed-loop paths (pattern wraps, no start/end)
 - [x] Bend option (Full | Linear) and GPU instancing for Linear

@@ -13,6 +13,8 @@ signal path_changed(path: Path3D)
 @export var switch_margin := 0.5
 @export var blend_distance := 2.0
 @export var max_distance := 20.0
+## A second path this close to the player makes the choice ambiguous (free roaming).
+@export var ambiguity_distance := 10.0
 ## Take switch_margin, blend_distance and max_distance from GameParams.
 @export var use_game_params := true
 
@@ -34,6 +36,7 @@ func _physics_process(_delta: float) -> void:
 		switch_margin = p.switch_margin
 		blend_distance = p.blend_distance
 		max_distance = p.max_path_distance
+		ambiguity_distance = p.path_ambiguity_distance
 	var owner_3d := get_parent() as Node3D
 	if owner_3d:
 		update_axes(owner_3d.global_position)
@@ -42,12 +45,15 @@ func _physics_process(_delta: float) -> void:
 func update_axes(pos: Vector3) -> void:
 	var samples := []
 	for p in get_tree().get_nodes_in_group(group):
-		if p is Path3D and p.curve and p.curve.point_count > 1:
+		if p is Path3D and p.curve and p.curve.point_count > 1 and p.is_visible_in_tree(): # a hidden path is ignored
 			var smp := sample(p, pos)
 			if smp.distance <= max_distance:
 				samples.append(smp)
-	if samples.is_empty():
+	samples.sort_custom(func(a, b): return a.distance < b.distance)
+	# Free roam: no path in range, or a second one close enough to make the choice ambiguous.
+	if samples.is_empty() or (samples.size() > 1 and samples[1].distance <= ambiguity_distance):
 		has_path = false
+		path = null # so the next path found defines forward afresh
 		return
 	samples.sort_custom(func(a, b): return a.distance < b.distance)
 
@@ -57,7 +63,8 @@ func update_axes(pos: Vector3) -> void:
 			primary = smp
 			break
 	# Keep "forward" meaning the way we were going when changing path.
-	if primary.path != path and primary.forward.dot(forward) < 0.0:
+	# Only when switching from a path we were already on; the first path found defines forward.
+	if path != null and primary.path != path and primary.forward.dot(forward) < 0.0:
 		_flip(primary)
 
 	var f: Vector3 = primary.forward
