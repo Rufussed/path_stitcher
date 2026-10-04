@@ -93,9 +93,9 @@ The wedge and shear both vary along the spiral, so they are computed for each mo
 
 | Property | Type | Purpose |
 | --- | --- | --- |
-| `path_node` | NodePath (Path3D) | The curve to follow. Empty = use the parent, when it is a Path3D (the standard layout) |
+| `path_node` | NodePath (Path3D), default `..` | The curve to follow. The default is the parent, so a stitcher added under a Path3D needs nothing set and the field shows the parent path's name; an empty value is treated as the parent too |
 | `sequence` | PathSequence | The building blocks (edited in the BUILDING BLOCKS section) |
-| `bend` | FULL / LINEAR | How a block follows the path between its joints (see "Bend"). Shown as two buttons, Full | Linear |
+| `bend` | LINEAR (default) / FULL | How a block follows the path between its joints (see "Bend"). Shown as two toggle buttons, Linear | Full |
 | `start_offset` | float, 0.0 | Path distance of the first block's start joint |
 | `up_mode` | WORLD / PATH | Vertical shear, or pitch and bank with the path |
 | `flip_side` | bool | Mirror blocks across the path line (pz becomes −pz): the +Z side faces right instead of left. Offsets mirror with it. No visible change for a block that is symmetric about its centre line |
@@ -132,8 +132,8 @@ Modules deform only at their vertices: a single-quad road piece cannot bend with
 
 | `bend` | Behaviour | Output |
 | --- | --- | --- |
-| `FULL` (default) | Every vertex is mapped through the curve (frames sampled every 0.05 m), so a block bends smoothly with the path. Best for organic and sculpted forms | Unique deformed meshes, merged by material and chunked (see "Draw-call efficiency") |
-| `LINEAR` | Only the block's two end frames (position, left and up at the start and end joint) are used, and every vertex between them is blended in a straight line: wedge and shear, no bend. Seams still meet exactly, because neighbours share the joint frame. On a tight curve a straight block cuts across it like a chord (about 0.14 m at most on the tower). Best for architectural blocks | GPU instancing (below) |
+| `FULL` | Every vertex is mapped through the curve (frames sampled every 0.05 m), so a block bends smoothly with the path. Best for organic and sculpted forms | Unique deformed meshes, merged by material and chunked (see "Draw-call efficiency") |
+| `LINEAR` (default) | Only the block's two end frames (position, left and up at the start and end joint) are used, and every vertex between them is blended in a straight line: wedge and shear, no bend. Seams still meet exactly, because neighbours share the joint frame. On a tight curve a straight block cuts across it like a chord (about 0.14 m at most on the tower). Best for architectural blocks | GPU instancing (below) |
 
 Both modes use the same maths per vertex; Linear simply uses a two-entry frame table instead of one every 0.05 m. Changing any SHAPE, COLLISION or OUTPUT setting rebuilds the output automatically (about 0.3 s).
 
@@ -196,7 +196,7 @@ Building blocks are Resources, stored inside the scene (or saved as a `.tres` an
 | | `random_seed`, `max_repeat` | RANDOM mode: the seed, and the longest run of one block |
 | | `markers`, `marker_snap` | Blocks at specific distances (below) |
 
-`PathStitcher.sequence` holds the `PathSequence`. When a PathStitcher is added as a child of a `Path3D`, its `path_node` is auto-assigned to `..` (an empty `path_node` also falls back to the parent path). A per-block `up_mode` / `flip_side` override is planned.
+`PathStitcher.sequence` holds the `PathSequence`. When a PathStitcher is added as a child of a `Path3D`, its `path_node` is `..` by default, so it follows that parent with nothing to set (an empty `path_node` also falls back to the parent path). A per-block `up_mode` / `flip_side` override is planned.
 
 ### Layout along the path
 
@@ -255,7 +255,7 @@ The path is split at markers into segments: start → marker 1 → … → end. 
 
 All setup happens in the **BUILDING BLOCK SEQUENCE** box at the top of a PathStitcher's Inspector, drawn by the **PathStitcher Inspector** editor plugin (`res://addons/path_stitcher/`). Godot's standard Inspector can only show lists of resources as nested sub-inspectors, so the plugin draws compact one-line rows instead. Each section sits in the editor's standard sub-inspector box.
 
-The SHAPE group sits directly under Path Node, with **Bend** as two toggle buttons on one line (Full | Linear; each button has a tooltip, Linear's reads "Full instancing - GPU optimized"), then Start Offset, Up Mode and Flip Side. The building-block box follows, then Rebuild / Clear, the summary, COLLISION and OUTPUT.
+The SHAPE group sits directly under Path Node, with **Bend** as two toggle buttons on one line (Linear | Full, Linear on by default; each button has a tooltip, Linear's reads "Full instancing - GPU optimized"), inside one dark panel together with a **Relative render cost** line under it that shows both modes' costs side by side, each aligned under its button (draw calls + triangles / 10,000 for the current layout, as if everything were in view, shown as a percentage of the more expensive mode, which reads 100%; Linear and Full can be compared without switching, and it refreshes after every rebuild). The Bend line never shows the Inspector's revert arrow, since both choices are ordinary. Then Start Offset, Up Mode and Flip Side. The building-block box follows, then Rebuild / Clear, the summary, COLLISION and OUTPUT.
 
 ```
 +- BUILDING BLOCK SEQUENCE ------------------ [ ] Randomize -+
@@ -285,7 +285,7 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 - **Randomize:** one toggle switches the sequence to a weighted draw and reveals Seed and Max repeat.
 - **Markers:** rows of block and distance, plus **Add marker here**, which drops a `PathMarker` node on the path at the point closest to the editor camera (it snaps to the path as it is dragged; its block is set in its own Inspector).
 - **Undo:** every edit is one undoable editor action, with merging for repeated edits to the same field.
-- **Live rebuild:** any change rebuilds the output automatically (debounced, about 0.3 s). **Rebuild** and **Clear** stay for manual use, and a read-only **summary** shows what was placed, for example "43 modules (Road x15, Block1 x28), stretch 0.994", plus warnings (path too short, stretch over 10%, marker overlapping the first or last block).
+- **Live rebuild:** any change rebuilds the output automatically (debounced, about 0.3 s). **Rebuild** and **Clear** stay for manual use, and a read-only **summary** starts with the current mode's raw **Render cost** (draw calls + triangles / 10,000, counted as if everything were in view; lower is lighter; the tower reads about 115 with Bend: Full and 32 with Linear), then says what was placed, for example "43 modules (Road x15, Block1 x28), stretch 0.994", plus warnings (path too short, stretch over 10%, marker overlapping the first or last block).
 - **If the plugin is off:** the sequence shows as Godot's standard resource slot and everything still works, just less conveniently.
 
 ## Movement axes system (optional)

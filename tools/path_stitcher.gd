@@ -42,11 +42,14 @@ enum UpMode { WORLD, PATH }
 ## still meet exactly; on tight curves the block cuts across the curve like a chord.
 enum Bend { FULL, LINEAR }
 
-## The Path3D to follow. Filled in automatically (to the parent) when this node
-## is added under a Path3D; an empty value also means "the parent".
-@export_node_path("Path3D") var path_node: NodePath:
+## Emitted after every rebuild (the Inspector refreshes its cost readout on it).
+signal rebuilt
+
+## The Path3D to follow. ".." (the default) is the parent, so a stitcher added under a
+## Path3D follows it with nothing to set; an empty value also means the parent.
+@export_node_path("Path3D") var path_node := NodePath(".."):
 	set(value):
-		path_node = value
+		path_node = value if not value.is_empty() else NodePath("..") # empty means the parent
 		update_configuration_warnings()
 		queue_rebuild()
 
@@ -54,7 +57,7 @@ enum Bend { FULL, LINEAR }
 ## How blocks follow the curve.
 ## Full: bends with the path (organic forms).
 ## Linear: straight blocks, ends matched - full instancing, GPU optimized.
-@export var bend := Bend.FULL:
+@export var bend := Bend.LINEAR:
 	set(value):
 		bend = value
 		queue_rebuild()
@@ -137,6 +140,7 @@ var _warnings: PackedStringArray = []
 var _pending := -1.0
 var _poll := 0.0
 var _watch_sig := ""
+var _last_items: Array = [] # the last layout, for relative_costs()
 var _shader_cache := {} # cull mode -> instancing Shader
 
 
@@ -151,6 +155,18 @@ func _ready() -> void:
 	update_configuration_warnings()
 	rebuild()
 	_watch_sig = _watch_signature()
+
+
+# Bend never shows the Inspector's revert arrow: Linear and Full are both ordinary
+# choices. Reporting the current value as the revert value hides it.
+func _property_can_revert(property: StringName) -> bool:
+	return property == &"bend"
+
+
+func _property_get_revert(property: StringName) -> Variant:
+	if property == &"bend":
+		return bend
+	return null
 
 
 func _validate_property(property: Dictionary) -> void:
@@ -228,8 +244,10 @@ func rebuild() -> void:
 	_mod_index = {}
 	_warnings = []
 	var items := _layout(length)
+	_last_items = items
 	if items.is_empty():
 		summary = "Nothing to place.\n" + "\n".join(_warnings)
+		rebuilt.emit()
 		return
 
 	var out := Node3D.new()
@@ -307,7 +325,9 @@ func rebuild() -> void:
 	summary = _summarise(items, n_chunks, Time.get_ticks_msec() - t0)
 	if inst_sets > 0:
 		summary = summary.replace(", %d chunks" % n_chunks, ", %d chunks, %d GPU-instanced meshes" % [n_chunks, inst_sets])
-	print("PathStitcher %s: %s" % [name, summary.get_slice("\n", 0)])
+	summary = _render_cost(out) + "\n" + summary
+	print("PathStitcher %s: %s | %s" % [name, summary.get_slice("\n", 0), summary.get_slice("\n", 1)])
+	rebuilt.emit()
 
 
 ## The auto length (m) of a module: its mesh extent along the path minus the
@@ -498,6 +518,59 @@ func _path_markers() -> Array:
 	if p == null:
 		return []
 	return p.get_children().filter(func(c): return c is PathMarker)
+
+
+## A single number for comparing how heavy the output is to render: draw calls
+## plus triangles / 10,000, counted as if everything were in view (culling and
+## shadows make the real frame cost lower or higher). Lower is lighter.
+func _render_cost(out: Node3D) -> String:
+	var draws := 0
+	var tris := 0
+	for c in out.get_children():
+		if c is MeshInstance3D and c.mesh:
+			for s in c.mesh.get_surface_count():
+				draws += 1
+				tris += c.mesh.surface_get_array_index_len(s) / 3
+		elif c is MultiMeshInstance3D and c.multimesh and c.multimesh.mesh:
+			draws += c.multimesh.mesh.get_surface_count()
+			tris += c.multimesh.mesh.surface_get_array_index_len(0) / 3 * c.multimesh.instance_count
+	var score := draws + tris / 10000.0
+	return "Render cost %d  (%d draw calls + %.2fM triangles / 10k, all in view)" % [roundi(score), draws, tris / 1000000.0]
+
+
+
+## The relative render cost of the last layout in each Bend mode, as
+## {"linear": int, "full": int}: draw calls + triangles / 10,000, as if everything
+## were in view. Lets the Inspector show both modes side by side without
+## rebuilding twice. Empty before the first build.
+func relative_costs() -> Dictionary:
+	var result := {}
+	if _last_items.is_empty():
+		return result
+	for linear in [true, false]:
+		var draws := 0
+		var tris := 0
+		var used := {} # module index -> true
+		for c0 in range(0, _last_items.size(), chunk_size):
+			var keys := {}
+			for i in range(c0, mini(c0 + chunk_size, _last_items.size())):
+				var mi: int = _last_items[i].mod
+				used[mi] = true
+				for g in _mods[mi].groups:
+					if not g.visible:
+						continue
+					tris += g.arrays[Mesh.ARRAY_INDEX].size() / 3
+					if not (linear and g.gpu):
+						keys[[g.material, g.collider, g.visible]] = true
+			draws += keys.size()
+		if linear:
+			for mi in used:
+				for g in _mods[mi].groups:
+					if g.visible and g.gpu:
+						draws += 1
+		result["linear" if linear else "full"] = roundi(draws + tris / 10000.0)
+	return result
+
 
 
 func _summarise(items: Array, n_chunks: int, ms: int) -> String:
