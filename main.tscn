@@ -20,12 +20,37 @@
 [ext_resource type="Script" uid="uid://bhfotg0hs6k15" path="res://tools/sequence/path_sequence.gd" id="8_qsp4k"]
 [ext_resource type="Texture2D" uid="uid://2r8ylu6rg5dp" path="res://addons/sky_3d/assets/thirdparty/textures/moon/MoonMap.png" id="8_yaehf"]
 [ext_resource type="Texture2D" uid="uid://djpfuyxkryegn" path="res://addons/sky_3d/assets/textures/noise.jpg" id="9_074og"]
+[ext_resource type="PackedScene" uid="uid://n7o0r80vugqs" path="res://blendot_meshes/Block0.blend" id="9_a6jrf"]
 [ext_resource type="Texture2D" uid="uid://bm7dot7t7u1q4" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/StarField.jpg" id="10_cegan"]
+[ext_resource type="PackedScene" uid="uid://dgai0sqovbn77" path="res://blendot_meshes/road1.blend" id="10_xuqvo"]
 [ext_resource type="Texture2D" uid="uid://c1vwcdcdvb74a" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/Milkyway.jpg" id="11_82xsv"]
 [ext_resource type="Script" uid="uid://b4tkplvh7fq40" path="res://addons/sky_3d/src/SkyDome.gd" id="13_getpj"]
 [ext_resource type="Script" uid="uid://cjmkcj8hwm7ts" path="res://addons/sky_3d/src/TimeOfDay.gd" id="14_ryguw"]
 [ext_resource type="Script" uid="uid://b477xmjhd5ovc" path="res://tools/path_ground_draper.gd" id="16_074og"]
 [ext_resource type="PackedScene" uid="uid://b03gowwco5uis" path="res://blendot_meshes/Road.blend" id="16_yaehf"]
+[ext_resource type="Shader" uid="uid://ne8y7c3mse76" path="res://addons/GPUTrail/shaders/trail.gdshader" id="17_seu75"]
+[ext_resource type="Shader" uid="uid://dgm3kxxtmdeoc" path="res://addons/GPUTrail/shaders/trail_draw_pass.gdshader" id="18_htxhm"]
+[ext_resource type="Script" uid="uid://sfibpcs7xklh" path="res://addons/GPUTrail/GPUTrail3D.gd" id="19_jq2sk"]
+
+[sub_resource type="Curve3D" id="Curve3D_qsp4k"]
+bake_interval = 0.5
+_data = {
+"points": PackedVector3Array(0, -0.36053467, -2.60407, 0, 0.36053467, 2.60407, 95, -3.4941895, -228, 0, -0.3605334, -2.60406, 0, 0.3605334, 2.60406, 95, -2.4125855, -220.18779, 0, -0.3605334, -2.6040726, 0, 0.3605334, 2.6040726, 95, -1.3309891, -212.37564, 0, -0.3584989, -2.6043522, 0, 0.3584989, 2.6043522, 95, -0.24938507, -204.56335, 0, -0.35453668, -2.604889, 0, 0.35453668, 2.604889, 95, 0.8200043, -196.74953, 0, -0.3526052, -2.6051586, 0, 0.3526052, 2.6051586, 95, 1.877835, -188.93402, 0, -0.3502477, -2.6054714, 0, 0.3502477, 2.6054714, 95, 2.9356353, -181.11858, 0, -0.34617618, -2.6060154, 0, 0.34617618, 2.6060154, 95, 3.9793212, -173.3012, 0, -0.34328592, -2.606397, 0, 0.34328592, 2.606397, 95, 5.0126925, -165.48248, 0, -0.3380623, -2.6070786, 0, 0.3380623, 2.6070786, 95, 6.0390368, -157.66281, 0, -0.3336614, -2.6076458, 0, 0.3336614, 2.6076458, 95, 7.041066, -149.84001, 0, -0.32844672, -2.608307, 0, 0.32844672, 2.608307, 95, 8.041005, -142.01694, 0, -0.32203546, -2.609108, 0, 0.32203546, 2.609108, 95, 9.011746, -134.19017, 0, -0.3161303, -2.6098225, 0, 0.3161303, 2.6098225, 95, 9.973218, -126.36229, 0, -0.30806732, -2.610794, 0, 0.30806732, 2.610794, 95, 10.908528, -118.531235, 0, -0.30048624, -2.6116765, 0, 0.30048624, 2.6116765, 95, 11.821622, -110.697525, 0, -0.2908872, -2.6127574, 0, 0.2908872, 2.6127574, 95, 12.711446, -102.861176, 0, -0.2800916, -2.6139412, 0, 0.2800916, 2.6139412, 95, 13.566945, -95.02098, 0, -0.26752853, -2.6152432, 0, 0.26752853, 2.6152432, 95, 14.391995, -87.17753, 0, -0.25353494, -2.6165123, 0, 0.25353494, 2.6165123, 95, 15.172116, -79.32952, 0, -0.14629476, -2.622617, 0, 0.14629476, 2.622617, 95, 15.913205, -71.478455, 0, -0.022799015, -2.6285565, 0, 0.022799015, 2.6285565, 95, 16.049885, -63.59382, 0, -4.196167e-05, -2.628905, 0, 4.196167e-05, 2.628905, 95, 16.05, -55.707115, 0, -1.780192e-05, -2.6289024, 0, 1.780192e-05, 2.6289024, 95, 16.050137, -47.82039, 0, 5.086263e-05, -2.628894, 0, -5.086263e-05, 2.628894, 95, 16.050106, -39.9337, 0, 8.90096e-06, -2.628909, 0, -8.90096e-06, 2.628909, 95, 16.049831, -32.047024, 0, 1.0172526e-05, -2.6289241, 0, -1.0172526e-05, 2.6289241, 95, 16.050053, -24.160246, 0, 2.2888184e-05, -2.6289246, 0, -2.2888184e-05, 2.6289246, 95, 16.04977, -16.27348, 0, -4.0690105e-05, -2.6289132, 0, 4.0690105e-05, 2.6289132, 95, 16.049915, -8.386698, 0, -3.306071e-05, -2.6288993, 0, 3.306071e-05, 2.6288993, 95, 16.050014, -0.5),
+"tilts": PackedFloat32Array(-0.061008815, -0.061008807, -0.06100881, -0.06100883, -0.06755837, -0.067558356, -0.06755839, -0.07345827, -0.073458254, -0.079932384, -0.0804119, -0.08611396, -0.0866554, -0.09214533, -0.09264609, -0.09755705, -0.103744954, -0.10804595, -0.108561225, -0.11409449, -0.11821611, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+}
+point_count = 30
+
+[sub_resource type="Resource" id="Resource_jq2sk"]
+script = ExtResource("7_xuqvo")
+scene = ExtResource("16_yaehf")
+
+[sub_resource type="Resource" id="Resource_4k2k6"]
+script = ExtResource("5_a6jrf")
+module = SubResource("Resource_jq2sk")
+
+[sub_resource type="Resource" id="Resource_0rl1p"]
+script = ExtResource("8_qsp4k")
+pattern = Array[ExtResource("5_a6jrf")]([SubResource("Resource_4k2k6")])
 
 [sub_resource type="Curve3D" id="Curve3D_h2yge"]
 _data = {
@@ -36,22 +61,70 @@ point_count = 161
 
 [sub_resource type="GDScript" id="GDScript_0xm2m"]
 
+[sub_resource type="Resource" id="Resource_ok6jj"]
+script = ExtResource("7_xuqvo")
+scene = ExtResource("10_xuqvo")
+stretch_to_length = null
+offset_py = 16.0
+
 [sub_resource type="Resource" id="Resource_kq58d"]
 script = ExtResource("7_xuqvo")
 scene = ExtResource("1_ig7tw")
-overlap = 0.5
+length = 10.0
+stretch_to_length = true
 
 [sub_resource type="Resource" id="Resource_seu75"]
 script = ExtResource("5_a6jrf")
 module = SubResource("Resource_kq58d")
 
+[sub_resource type="Resource" id="Resource_xuqvo"]
+script = ExtResource("7_xuqvo")
+scene = ExtResource("9_a6jrf")
+stretch_to_length = true
+offset_pz = -5.5
+
 [sub_resource type="Resource" id="Resource_htxhm"]
 script = ExtResource("8_qsp4k")
+start = SubResource("Resource_xuqvo")
+start_count = 102
+end = SubResource("Resource_ok6jj")
+anchor_end = true
 pattern = Array[ExtResource("5_a6jrf")]([SubResource("Resource_seu75")])
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_7mycd"]
 radius = 0.4
 height = 1.8
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_4k2k6"]
+shader = ExtResource("17_seu75")
+
+[sub_resource type="Gradient" id="Gradient_0rl1p"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_ok6jj"]
+gradient = SubResource("Gradient_0rl1p")
+
+[sub_resource type="Curve" id="Curve_facbu"]
+bake_resolution = 16
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_b1qrp"]
+curve = SubResource("Curve_facbu")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_come4"]
+resource_local_to_scene = true
+render_priority = 0
+shader = ExtResource("18_htxhm")
+shader_parameter/mask_strength = 1.0
+shader_parameter/uv_offset = Vector2(0, 0)
+shader_parameter/color_ramp = SubResource("GradientTexture1D_ok6jj")
+shader_parameter/curve = SubResource("CurveTexture_b1qrp")
+shader_parameter/emmission_transform = Projection(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+shader_parameter/flags = 40
+
+[sub_resource type="QuadMesh" id="QuadMesh_h8e4i"]
+material = SubResource("ShaderMaterial_come4")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w48qg"]
 albedo_color = Color(0.25, 0.5, 0.2, 1)
@@ -116,8 +189,8 @@ shader_parameter/cirrus_absorption = 2.0
 shader_parameter/cirrus_sky_tint_fade = 0.5
 shader_parameter/cirrus_size = 1.0
 shader_parameter/cirrus_uv = Vector2(0.16, 0.11)
-shader_parameter/cirrus_position1 = Vector2(0.9743247, 0.9743247)
-shader_parameter/cirrus_position2 = Vector2(0.9743247, 0.9743247)
+shader_parameter/cirrus_position1 = Vector2(0.19751911, 0.19751911)
+shader_parameter/cirrus_position2 = Vector2(0.19751911, 0.19751911)
 shader_parameter/cirrus_texture = ExtResource("6_vivmo")
 shader_parameter/cumulus_visible = true
 shader_parameter/cumulus_intensity = 0.6
@@ -127,7 +200,7 @@ shader_parameter/cumulus_absorption = 2.0
 shader_parameter/cumulus_noise_freq = 2.7
 shader_parameter/cumulus_sky_tint_fade = 0.0
 shader_parameter/cumulus_size = 0.5
-shader_parameter/cumulus_position = Vector2(4.8725243, 4.8725243)
+shader_parameter/cumulus_position = Vector2(46.136982, 46.136982)
 shader_parameter/cumulus_texture = ExtResource("7_2cqfq")
 shader_parameter/cumulus_partial_mie_phase = Vector3(0.957564, 1.042436, 0.412)
 shader_parameter/cumulus_mie_intensity = 1.0
@@ -153,29 +226,22 @@ tonemap_white = 6.0
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_lswn8"]
 
-[sub_resource type="Curve3D" id="Curve3D_cegan"]
-bake_interval = 0.5
-_data = {
-"points": PackedVector3Array(0, -0.37496948, -2.7082672, 0, 0.37496948, 2.7082672, 95, -3.49422, -228, 0, -0.3749644, -2.7082722, 0, 0.3749644, 2.7082722, 95, -2.3693116, -219.8752, 0, -0.37497202, -2.7083511, 0, 0.37497202, 2.7083511, 95, -1.2444336, -211.75037, 0, -0.37226105, -2.7083614, 0, 0.37226105, 2.7083614, 95, -0.11947937, -203.62509, 0, -0.36804834, -2.7083435, 0, 0.36804834, 2.7083435, 95, 0.9891327, -195.5002, 0, -0.36656824, -2.7083638, 0, 0.36656824, 2.7083638, 95, 2.0888107, -187.37503, 0, -0.36302188, -2.7083359, 0, 0.36302188, 2.7083359, 95, 3.1885421, -179.25002, 0, -0.358621, -2.7083333, 0, 0.358621, 2.7083333, 95, 4.266942, -171.12502, 0, -0.35490927, -2.7083359, 0, 0.35490927, 2.7083359, 95, 5.340268, -163.00002, 0, -0.34935507, -2.7083385, 0, 0.34935507, 2.7083385, 95, 6.3963976, -154.875, 0, -0.34424973, -2.7083333, 0, 0.34424973, 2.7083333, 95, 7.4363985, -146.74998, 0, -0.33867136, -2.7083359, 0, 0.33867136, 2.7083359, 95, 8.461896, -138.625, 0, -0.33140564, -2.7083385, 0, 0.33140564, 2.7083385, 95, 9.468427, -130.49997, 0, -0.3240242, -2.7083347, 0, 0.3240242, 2.7083347, 95, 10.45033, -122.37497, 0, -0.3161265, -2.7083347, 0, 0.3161265, 2.7083347, 95, 11.412572, -114.24996, 0, -0.30492783, -2.708337, 0, 0.30492783, 2.708337, 95, 12.347089, -106.12496, 0, -0.29354987, -2.7083294, 0, 0.29354987, 2.7083294, 95, 13.242139, -97.99994, 0, -0.28191885, -2.708318, 0, 0.28191885, 2.708318, 95, 14.108388, -89.874985, 0, -0.2673289, -2.708332, 0, 0.2673289, 2.708332, 95, 14.933652, -81.75003, 0, -0.18607187, -2.7083485, 0, 0.18607187, 2.7083485, 95, 15.712361, -73.62499, 0, -0.056288242, -2.7083397, 0, 0.056288242, 2.7083397, 95, 16.050083, -65.49994, 0, 2.5431316e-06, -2.7083275, 0, -2.5431316e-06, 2.7083275, 95, 16.05009, -57.374954, 0, 6.3578286e-06, -2.7083251, 0, -6.3578286e-06, 2.7083251, 95, 16.050068, -49.249973, 0, 5.086263e-06, -2.7083557, 0, -5.086263e-06, 2.7083557, 95, 16.050053, -41.125004, 0, 2.1616617e-05, -2.7083418, 0, -2.1616617e-05, 2.7083418, 95, 16.050037, -32.99984, 0, 4.4504803e-05, -2.7083635, 0, -4.4504803e-05, 2.7083635, 95, 16.049923, -24.874952, 0, 3.8146973e-06, -2.7083523, 0, -3.8146973e-06, 2.7083523, 95, 16.04977, -16.749659, 0, -3.560384e-05, -2.7082765, 0, 3.560384e-05, 2.7082765, 95, 16.0499, -8.624839, 0, -2.7974447e-05, -2.7082796, 0, 2.7974447e-05, 2.7082796, 95, 16.049984, -0.5),
-"tilts": PackedFloat32Array(-0.06100881, -0.06100882, -0.06100881, -0.061008845, -0.06755838, -0.06755836, -0.067558415, -0.073458254, -0.07452142, -0.079932325, -0.080411926, -0.086113855, -0.086655475, -0.09214523, -0.09755717, -0.098084934, -0.104218274, -0.10804581, -0.11409448, -0.11816923, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-}
-point_count = 29
-
-[sub_resource type="Resource" id="Resource_jq2sk"]
-script = ExtResource("7_xuqvo")
-scene = ExtResource("16_yaehf")
-
-[sub_resource type="Resource" id="Resource_4k2k6"]
-script = ExtResource("5_a6jrf")
-module = SubResource("Resource_jq2sk")
-
-[sub_resource type="Resource" id="Resource_0rl1p"]
-script = ExtResource("8_qsp4k")
-pattern = Array[ExtResource("5_a6jrf")]([SubResource("Resource_4k2k6")])
-
 [node name="Node3D" type="Node3D" unique_id=1662825011]
 script = ExtResource("1_ryguw")
 params = ExtResource("2_d13ii")
+
+[node name="HillRoadPath" type="Path3D" parent="." unique_id=991081174 groups=["movement_paths"]]
+curve = SubResource("Curve3D_qsp4k")
+
+[node name="GroundDraper" type="Node" parent="HillRoadPath" unique_id=1052729365]
+script = ExtResource("16_074og")
+height_offset = 0.05
+
+[node name="HillRoadStitcher" type="Node3D" parent="HillRoadPath" unique_id=933908845]
+script = ExtResource("4_ryguw")
+path_node = NodePath("..")
+up_mode = 1
+sequence = SubResource("Resource_0rl1p")
 
 [node name="SpiralPath" type="Path3D" parent="." unique_id=420767159 groups=["movement_paths"]]
 curve = SubResource("Curve3D_h2yge")
@@ -184,6 +250,8 @@ script = SubResource("GDScript_0xm2m")
 [node name="TowerStitcher" type="Node3D" parent="SpiralPath" unique_id=365011356]
 script = ExtResource("4_ryguw")
 path_node = NodePath("..")
+bend = 1
+flip_side = true
 sequence = SubResource("Resource_htxhm")
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=1474213973]
@@ -208,6 +276,20 @@ current = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, 0)
 
 [node name="Skater" parent="Player/Visual" unique_id=325772105 instance=ExtResource("5_cegan")]
+
+[node name="BoardTrail" type="GPUParticles3D" parent="Player/Visual/Skater" unique_id=376577939]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, -0.8238678)
+amount = 100
+lifetime = 100.0
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ShaderMaterial_4k2k6")
+draw_pass_1 = SubResource("QuadMesh_h8e4i")
+script = ExtResource("19_jq2sk")
+length_seconds = 1.6666666666666667
+color_ramp = SubResource("GradientTexture1D_ok6jj")
+curve = SubResource("CurveTexture_b1qrp")
+_defaults_have_been_set = true
 
 [node name="AnimationTree" type="AnimationTree" parent="Player" unique_id=1451620169]
 root_node = NodePath("../Visual/Skater")
@@ -255,6 +337,7 @@ sun_azimuth = -3.6884823
 sun_altitude = -0.79084706
 moon_azimuth = -3.2133503
 moon_altitude = -0.7102938
+fog_visible = false
 wind_direction = 2.35619451204804
 
 [node name="TimeOfDay" type="Node" parent="Sky3D" unique_id=2026510062]
@@ -263,16 +346,3 @@ editor_time_enabled = false
 dome_path = NodePath("../SkyDome")
 minutes_per_day = 1440.0
 current_time = 13.44
-
-[node name="HillRoadPath" type="Path3D" parent="." unique_id=991081174 groups=["movement_paths"]]
-curve = SubResource("Curve3D_cegan")
-
-[node name="GroundDraper" type="Node" parent="HillRoadPath" unique_id=1052729365]
-script = ExtResource("16_074og")
-height_offset = 0.05
-
-[node name="HillRoadStitcher" type="Node3D" parent="HillRoadPath" unique_id=933908845]
-script = ExtResource("4_ryguw")
-path_node = NodePath("..")
-sequence = SubResource("Resource_0rl1p")
-up_mode = 1

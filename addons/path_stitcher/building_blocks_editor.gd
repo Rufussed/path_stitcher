@@ -7,7 +7,7 @@ extends VBoxContainer
 ##   with an "Anchor Last block to end of path" toggle, the fit mode, and
 ##   Randomize (with seed and max repeat). Every row has a multiplier: a repeat
 ##   count (a weight for the middle rows when Randomize is on) and an expander
-##   for that block's length (px), overlap and offset (py, pz).
+##   for that block's length (px), overlap and offset (vert, horz).
 ## A second box holds markers (a block at a path distance).
 ## Every edit is one undoable editor action.
 
@@ -287,16 +287,25 @@ func _detail(pm: PathModule) -> Control:
 	overlap.tooltip_text = "Built-in overlap at each end, removed from the automatic length."
 	overlap.value_changed.connect(_on_spin.bind(pm, &"overlap", "Set block overlap"))
 	grid.add_child(overlap)
-	grid.add_child(_label("Offset py"))
+	grid.add_child(_label("Offset Vert"))
 	var py := _spin(pm.offset_py, -100000.0, 100000.0, 0.01, " m")
-	py.tooltip_text = "Raise or lower this block."
-	py.value_changed.connect(_on_spin.bind(pm, &"offset_py", "Set block py offset"))
+	py.tooltip_text = "Raise or lower this block (py)."
+	py.value_changed.connect(_on_spin.bind(pm, &"offset_py", "Set block vertical offset"))
 	grid.add_child(py)
-	grid.add_child(_label("Offset pz"))
+	grid.add_child(_label("Offset Horz"))
 	var pz := _spin(pm.offset_pz, -100000.0, 100000.0, 0.01, " m")
-	pz.tooltip_text = "Shift this block sideways (+ = left of travel)."
-	pz.value_changed.connect(_on_spin.bind(pm, &"offset_pz", "Set block pz offset"))
+	pz.tooltip_text = "Shift this block sideways (pz; + = left of travel)."
+	pz.value_changed.connect(_on_spin.bind(pm, &"offset_pz", "Set block horizontal offset"))
 	grid.add_child(pz)
+
+	var fit_row := HBoxContainer.new()
+	fit_row.add_child(_label("Along px"))
+	var fit_opt := _option(["Place", "Stretch"], 1 if pm.stretch_to_length else 0)
+	fit_opt.tooltip_text = "What Length does to the block along the path.\nPlace: the block keeps its size and is placed every Length (a longer Length leaves gaps).\nStretch: the block is stretched along the path to fill Length."
+	fit_opt.item_selected.connect(_on_length_fit.bind(pm))
+	fit_row.add_child(fit_opt)
+	v.add_child(fit_row)
+
 
 	var hint := _label(_auto_text(pm))
 	hint.modulate = Color(1, 1, 1, 0.6)
@@ -456,6 +465,11 @@ func _on_spin(value: float, obj: Object, prop: StringName, label: String) -> voi
 
 func _on_int(value: float, obj: Object, prop: StringName, label: String) -> void:
 	_apply(obj, prop, int(value), "%s %s %d" % [label, prop, obj.get_instance_id()], true)
+
+
+func _on_length_fit(index: int, pm: PathModule) -> void:
+	_apply(pm, &"stretch_to_length", index == 1, "Set length fit %d" % pm.get_instance_id())
+
 
 
 func _create_sequence() -> void:

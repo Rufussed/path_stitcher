@@ -1,8 +1,10 @@
 @tool
 extends EditorInspectorPlugin
-## Replaces a PathStitcher's `sequence` property with the BUILDING BLOCKS editor.
+## Replaces a PathStitcher's `sequence` property with the BUILDING BLOCKS editor,
+## and its `bend` property with a two-button Full | Linear choice.
 
 const BlocksEditor := preload("res://addons/path_stitcher/building_blocks_editor.gd")
+const BendProperty := preload("res://addons/path_stitcher/bend_property.gd")
 
 
 func _can_handle(object: Object) -> bool:
@@ -16,4 +18,7 @@ func _parse_property(object: Object, _type: Variant.Type, name: String, _hint_ty
 		editor.setup(object)
 		add_custom_control(editor)
 		return true # hide the default resource slot
+	if name == "bend":
+		add_property_editor(name, BendProperty.new(), false, "Bend")
+		return true # hide the default dropdown
 	return false

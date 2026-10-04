@@ -99,7 +99,7 @@ static func set_active(params: GameParams) -> void:
 # --- Jump ---
 
 ## Upward speed of a jump (m/s).
-@export var jump_speed := 24.5
+@export var jump_speed := 10
 
 
 

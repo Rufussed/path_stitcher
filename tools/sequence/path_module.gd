@@ -19,6 +19,13 @@ extends Resource
 		length = value
 		emit_changed()
 
+## Off: the block keeps its shape and Length only sets the spacing (a longer Length
+## leaves gaps). On: the block is stretched along the path to fill Length.
+@export var stretch_to_length := false:
+	set(value):
+		stretch_to_length = value
+		emit_changed()
+
 ## Built-in overlap at each end (m), e.g. 0.5 for a 6 m Block1 placed every 5 m.
 @export_range(0.0, 100.0, 0.01, "or_greater", "suffix:m") var overlap := 0.0:
 	set(value):

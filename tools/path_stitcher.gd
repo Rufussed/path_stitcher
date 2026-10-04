@@ -35,6 +35,13 @@ extends Node3D
 
 enum UpMode { WORLD, PATH }
 
+## How a block follows the path between its two joints.
+## FULL: every vertex is mapped through the curve, so the block bends with it.
+## LINEAR: only the block's two end frames are used and the vertices in between
+## are blended in a straight line (wedge and shear only, no bend). The seams
+## still meet exactly; on tight curves the block cuts across the curve like a chord.
+enum Bend { FULL, LINEAR }
+
 ## The Path3D to follow. Filled in automatically (to the parent) when this node
 ## is added under a Path3D; an empty value also means "the parent".
 @export_node_path("Path3D") var path_node: NodePath:
@@ -42,6 +49,33 @@ enum UpMode { WORLD, PATH }
 		path_node = value
 		update_configuration_warnings()
 		queue_rebuild()
+
+@export_group("SHAPE")
+## How blocks follow the curve.
+## Full: bends with the path (organic forms).
+## Linear: straight blocks, ends matched - full instancing, GPU optimized.
+@export var bend := Bend.FULL:
+	set(value):
+		bend = value
+		queue_rebuild()
+## Path distance (m) where the first block starts.
+@export var start_offset := 0.0:
+	set(value):
+		start_offset = value
+		queue_rebuild()
+## World: walls stay vertical, slopes shear (towers).
+## Path: blocks pitch and bank with the path (roads on hills).
+@export var up_mode := UpMode.WORLD:
+	set(value):
+		up_mode = value
+		queue_rebuild()
+## Swap which side of the path the blocks' +Z side faces.
+@export var flip_side := false:
+	set(value):
+		flip_side = value
+		queue_rebuild()
+
+@export_group("")
 
 ## What to place along the path (edited in the BUILDING BLOCK SEQUENCE section).
 @export var sequence: PathSequence:
@@ -60,24 +94,28 @@ enum UpMode { WORLD, PATH }
 ## What the last build placed, and any warnings.
 @export_multiline var summary := ""
 
-@export_group("SHAPE")
-## Path distance where the first block's start joint sits (m).
-@export var start_offset := 0.0
-## How the module's up direction is chosen; see the class description.
-@export var up_mode := UpMode.WORLD
-## Flip which side of the path module +Z extends to.
-@export var flip_side := false
-
 @export_group("COLLISION")
 ## Meshes whose name starts with this become invisible collision.
-@export var collision_prefix := "Col-"
+@export var collision_prefix := "Col-":
+	set(value):
+		collision_prefix = value
+		queue_rebuild()
 ## Meshes whose name starts with this are visible and also become collision.
-@export var visible_collision_prefix := "ColVis-"
-@export var generate_collision := true
+@export var visible_collision_prefix := "ColVis-":
+	set(value):
+		visible_collision_prefix = value
+		queue_rebuild()
+@export var generate_collision := true:
+	set(value):
+		generate_collision = value
+		queue_rebuild()
 
 @export_group("OUTPUT")
 ## Modules combined into each output mesh and collision body (1 = one per module).
-@export_range(1, 100) var chunk_size := 10
+@export_range(1, 100) var chunk_size := 10:
+	set(value):
+		chunk_size = value
+		queue_rebuild()
 
 const STEP := 0.05 # lookup-table resolution along module X, metres
 const OUT_NAME := "_Generated"
@@ -99,6 +137,7 @@ var _warnings: PackedStringArray = []
 var _pending := -1.0
 var _poll := 0.0
 var _watch_sig := ""
+var _shader_cache := {} # cull mode -> instancing Shader
 
 
 func _enter_tree() -> void:
@@ -197,6 +236,8 @@ func rebuild() -> void:
 	out.name = OUT_NAME
 	add_child(out) # deliberately unowned: regenerated, never saved into the scene
 
+	var instanced := bend == Bend.LINEAR # eligible meshes are drawn by GPU instancing
+	var inst_rows := {} # module index -> frames per placement
 	var n_chunks := 0
 	for c0 in range(0, items.size(), chunk_size):
 		var by_key := {} # [material, collider, visible] -> {material, list}
@@ -204,11 +245,17 @@ func rebuild() -> void:
 		for i in range(c0, mini(c0 + chunk_size, items.size())):
 			var it: Dictionary = items[i]
 			var mod: Dictionary = _mods[it.mod]
-			var scale_x: float = (it.s1 - it.s0) / mod.length
+			var scale_x: float = (it.s1 - it.s0) / mod.stretch_base
 			var centre: float = (it.s0 + it.s1) * 0.5
 			var x0: float = mod.x0
 			var x1: float = mod.x1
-			var n_tbl := maxi(2, ceili((x1 - x0) / STEP) + 1)
+			var step := STEP
+			if bend == Bend.LINEAR:
+				# Two frames, at the block's joints; the blend extends past them.
+				x0 = -mod.stretch_base * 0.5
+				x1 = mod.stretch_base * 0.5
+				step = x1 - x0
+			var n_tbl := maxi(2, ceili((x1 - x0) / step) + 1)
 			var tbl_p := PackedVector3Array()
 			var tbl_l := PackedVector3Array()
 			var tbl_u := PackedVector3Array()
@@ -216,15 +263,21 @@ func rebuild() -> void:
 			tbl_l.resize(n_tbl)
 			tbl_u.resize(n_tbl)
 			for k in n_tbl:
-				var f := _frame(curve, length, xf, centre + (x0 + k * STEP) * scale_x)
+				var f := _frame(curve, length, xf, centre + (x0 + k * step) * scale_x)
 				tbl_p[k] = f[0]
 				tbl_l[k] = f[1]
 				tbl_u[k] = f[2]
+			if instanced:
+				var frames: PackedVector3Array = inst_rows.get(it.mod, PackedVector3Array())
+				frames.append_array(PackedVector3Array([tbl_p[0], tbl_l[0], tbl_u[0], tbl_p[1], tbl_l[1], tbl_u[1]]))
+				inst_rows[it.mod] = frames
 			for g in mod.groups:
-				var arr := _deform(g.arrays, tbl_p, tbl_l, tbl_u, x0)
+				if instanced and g.gpu and not g.collider:
+					continue # drawn by GPU instancing, nothing to deform here
+				var arr := _deform(g.arrays, tbl_p, tbl_l, tbl_u, x0, step)
 				if g.collider:
 					faces.append_array(_faces(arr))
-				if g.visible:
+				if g.visible and not (instanced and g.gpu):
 					var key := [g.material, g.collider, g.visible]
 					if not by_key.has(key):
 						by_key[key] = {"material": g.material, "list": []}
@@ -250,7 +303,10 @@ func rebuild() -> void:
 			body.add_child(cs)
 			mi.add_child(body)
 
+	var inst_sets := _build_instances(out, inst_rows) if instanced else 0
 	summary = _summarise(items, n_chunks, Time.get_ticks_msec() - t0)
+	if inst_sets > 0:
+		summary = summary.replace(", %d chunks" % n_chunks, ", %d chunks, %d GPU-instanced meshes" % [n_chunks, inst_sets])
 	print("PathStitcher %s: %s" % [name, summary.get_slice("\n", 0)])
 
 
@@ -483,6 +539,9 @@ func _module(pm: PathModule) -> int:
 			var x0: float = data.x0
 			var x1: float = data.x1
 			data.length = pm.length if pm.length > 0.0 else (x1 - x0) - 2.0 * pm.overlap
+			data.stretch_base = data.length # mesh scale along the path is (joint span) / stretch_base
+			if pm.stretch_to_length and pm.length > 0.0 and (x1 - x0) - 2.0 * pm.overlap > 0.001:
+				data.stretch_base = (x1 - x0) - 2.0 * pm.overlap # stretch the mesh itself to the set length
 			if data.length <= 0.001:
 				_warnings.append("%s has no length; set its length." % pm.display_name())
 			else:
@@ -566,7 +625,7 @@ func _collect(root: Node) -> Array:
 	var groups := []
 	for g in by_key.values():
 		groups.append({"arrays": _concat(g.list), "material": g.material,
-				"collider": g.collider, "visible": g.visible})
+				"collider": g.collider, "visible": g.visible, "gpu": _gpu_ok(g.material)})
 	return groups
 
 
@@ -584,6 +643,188 @@ func _relative_transform(node: Node, root: Node) -> Transform3D:
 # ------------------------------------------------------------------------------
 # Deformation
 # ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# GPU instancing (Bend: Linear)
+# ------------------------------------------------------------------------------
+
+## Shader for instanced blocks: the same straight blend between a block's two
+## end frames as the CPU path (Bend: Linear), done per vertex on the GPU. Each
+## instance reads its frames (position, left, up at the start and end joint)
+## from a small float texture, indexed by INSTANCE_ID. CULL is replaced below.
+const INSTANCE_SHADER := """shader_type spatial;
+render_mode CULL;
+
+uniform sampler2D path_data : filter_nearest, repeat_disable;
+uniform float half_len = 2.5;
+uniform sampler2D albedo_tex : source_color, hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec4 albedo : source_color = vec4(1.0);
+uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform bool use_normal = false;
+uniform float normal_scale = 1.0;
+uniform float roughness = 1.0;
+uniform float metallic = 0.0;
+uniform float specular = 0.5;
+uniform sampler2D roughness_tex : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec4 roughness_channel = vec4(1.0, 0.0, 0.0, 0.0);
+uniform sampler2D metallic_tex : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec4 metallic_channel = vec4(1.0, 0.0, 0.0, 0.0);
+uniform vec3 uv1_scale = vec3(1.0);
+uniform vec3 uv1_offset = vec3(0.0);
+
+void vertex() {
+	int id = INSTANCE_ID;
+	vec3 p0 = texelFetch(path_data, ivec2(0, id), 0).xyz;
+	vec3 l0 = texelFetch(path_data, ivec2(1, id), 0).xyz;
+	vec3 u0 = texelFetch(path_data, ivec2(2, id), 0).xyz;
+	vec3 p1 = texelFetch(path_data, ivec2(3, id), 0).xyz;
+	vec3 l1 = texelFetch(path_data, ivec2(4, id), 0).xyz;
+	vec3 u1 = texelFetch(path_data, ivec2(5, id), 0).xyz;
+	float span = 2.0 * half_len;
+	float w = (VERTEX.x + half_len) / span;
+	vec3 L = normalize(mix(l0, l1, w));
+	vec3 U = normalize(mix(u0, u1, w));
+	vec3 dx = ((p1 - p0) + (l1 - l0) * VERTEX.z + (u1 - u0) * VERTEX.y) / span;
+	mat3 J = mat3(dx, U, L);
+	VERTEX = mix(p0, p1, w) + L * VERTEX.z + U * VERTEX.y;
+	NORMAL = normalize(transpose(inverse(J)) * NORMAL);
+	TANGENT = normalize(J * TANGENT);
+	BINORMAL = normalize(J * BINORMAL);
+	UV = UV * uv1_scale.xy + uv1_offset.xy;
+}
+
+void fragment() {
+	vec4 a = texture(albedo_tex, UV) * albedo;
+	ALBEDO = a.rgb;
+	ROUGHNESS = roughness * dot(texture(roughness_tex, UV), roughness_channel);
+	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel);
+	SPECULAR = specular;
+	if (use_normal) {
+		NORMAL_MAP = texture(normal_tex, UV).xyz;
+		NORMAL_MAP_DEPTH = normal_scale;
+	}
+}
+"""
+
+
+## True if a material is plain enough for the instancing shader (opaque, an
+## albedo colour and texture, an optional normal map, roughness and metallic
+## values). Anything fancier stays on the CPU path so it still looks right.
+func _gpu_ok(mat: Material) -> bool:
+	var m := mat as StandardMaterial3D
+	if m == null:
+		return false
+	return m.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED \
+			and m.shading_mode == BaseMaterial3D.SHADING_MODE_PER_PIXEL \
+			and m.billboard_mode == BaseMaterial3D.BILLBOARD_DISABLED \
+			and m.distance_fade_mode == BaseMaterial3D.DISTANCE_FADE_DISABLED \
+			and not (m.emission_enabled or m.uv1_triplanar or m.vertex_color_use_as_albedo \
+			or m.ao_enabled or m.rim_enabled or m.clearcoat_enabled or m.anisotropy_enabled \
+			or m.heightmap_enabled or m.subsurf_scatter_enabled or m.backlight_enabled
+			or m.refraction_enabled or m.detail_enabled or m.proximity_fade_enabled)
+
+
+## The instancing shader material for `mat`, reading frames from `data`.
+func _gpu_material(mat: StandardMaterial3D, data: Texture2D, half_len: float) -> ShaderMaterial:
+	var cull := "cull_disabled"
+	if mat.cull_mode == BaseMaterial3D.CULL_BACK:
+		cull = "cull_back"
+	elif mat.cull_mode == BaseMaterial3D.CULL_FRONT:
+		cull = "cull_front"
+	if not _shader_cache.has(cull):
+		var sh := Shader.new()
+		sh.code = INSTANCE_SHADER.replace("CULL", cull)
+		_shader_cache[cull] = sh
+	var sm := ShaderMaterial.new()
+	sm.shader = _shader_cache[cull]
+	sm.set_shader_parameter("path_data", data)
+	sm.set_shader_parameter("half_len", half_len)
+	sm.set_shader_parameter("albedo", mat.albedo_color)
+	sm.set_shader_parameter("albedo_tex", mat.albedo_texture)
+	sm.set_shader_parameter("use_normal", mat.normal_enabled and mat.normal_texture != null)
+	sm.set_shader_parameter("normal_tex", mat.normal_texture)
+	sm.set_shader_parameter("normal_scale", mat.normal_scale)
+	sm.set_shader_parameter("roughness", mat.roughness)
+	sm.set_shader_parameter("metallic", mat.metallic)
+	sm.set_shader_parameter("specular", mat.metallic_specular)
+	sm.set_shader_parameter("roughness_tex", mat.roughness_texture)
+	sm.set_shader_parameter("roughness_channel", _channel_mask(mat.roughness_texture_channel))
+	sm.set_shader_parameter("metallic_tex", mat.metallic_texture)
+	sm.set_shader_parameter("metallic_channel", _channel_mask(mat.metallic_texture_channel))
+	sm.set_shader_parameter("uv1_scale", mat.uv1_scale)
+	sm.set_shader_parameter("uv1_offset", mat.uv1_offset)
+	return sm
+
+
+## Which texture channel(s) a BaseMaterial3D texture-channel setting reads.
+func _channel_mask(channel: int) -> Vector4:
+	match channel:
+		BaseMaterial3D.TEXTURE_CHANNEL_GREEN:
+			return Vector4(0, 1, 0, 0)
+		BaseMaterial3D.TEXTURE_CHANNEL_BLUE:
+			return Vector4(0, 0, 1, 0)
+		BaseMaterial3D.TEXTURE_CHANNEL_ALPHA:
+			return Vector4(0, 0, 0, 1)
+		BaseMaterial3D.TEXTURE_CHANNEL_GRAYSCALE:
+			return Vector4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0)
+	return Vector4(1, 0, 0, 0)
+
+
+## One MultiMeshInstance3D per (block type, material) for the groups that can
+## be instanced. `rows` maps a module index to its frames, six Vector3 per
+## placement: position, left, up at the start joint, then at the end joint.
+## Returns how many meshes were made.
+func _build_instances(out: Node3D, rows: Dictionary) -> int:
+	var made := 0
+	for mi in rows:
+		var mod: Dictionary = _mods[mi]
+		var frames: PackedVector3Array = rows[mi]
+		var n := frames.size() / 6
+		if n == 0:
+			continue
+		var texels := PackedFloat32Array()
+		texels.resize(frames.size() * 4)
+		var lo := Vector3(INF, INF, INF)
+		var hi := Vector3(-INF, -INF, -INF)
+		for i in frames.size():
+			texels[i * 4] = frames[i].x
+			texels[i * 4 + 1] = frames[i].y
+			texels[i * 4 + 2] = frames[i].z
+			if i % 3 == 0:
+				lo = lo.min(frames[i])
+				hi = hi.max(frames[i])
+		var img := Image.create_from_data(6, n, false, Image.FORMAT_RGBAF, texels.to_byte_array())
+		var data := ImageTexture.create_from_image(img)
+		var identity := PackedFloat32Array()
+		identity.resize(n * 12)
+		for i in n:
+			identity[i * 12] = 1.0
+			identity[i * 12 + 5] = 1.0
+			identity[i * 12 + 10] = 1.0
+		var gi := 0
+		for g in mod.groups:
+			if not (g.visible and g.gpu):
+				continue
+			var mesh := ArrayMesh.new()
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, g.arrays)
+			mesh.surface_set_material(0, _gpu_material(g.material, data, mod.stretch_base * 0.5))
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = mesh
+			mm.instance_count = n
+			mm.buffer = identity
+			var inst := MultiMeshInstance3D.new()
+			inst.name = "Inst_%s_%d" % [mod.name, gi]
+			inst.multimesh = mm
+			# The instances' own transforms are identity, so Godot cannot know where
+			# the geometry ends up: give it the bounds of the path part used.
+			inst.custom_aabb = AABB(lo, hi - lo).grow(mesh.get_aabb().get_longest_axis_size())
+			out.add_child(inst)
+			gi += 1
+			made += 1
+	return made
+
 
 
 ## [position, left, up] at path distance s, in this node's space.
@@ -607,7 +848,7 @@ func _frame(curve: Curve3D, length: float, xf: Transform3D, s: float) -> Array:
 	return [xf * p, (xf.basis * l).normalized(), (xf.basis * u).normalized()]
 
 
-func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, tbl_u: PackedVector3Array, x0: float) -> Array:
+func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, tbl_u: PackedVector3Array, x0: float, step: float) -> Array:
 	var arr := src.duplicate()
 	var verts: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
 	var normals = src[Mesh.ARRAY_NORMAL]
@@ -623,7 +864,7 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 	var last := tbl_p.size() - 2
 	for i in verts.size():
 		var v := verts[i]
-		var f := (v.x - x0) / STEP
+		var f := (v.x - x0) / step
 		var k := clampi(int(f), 0, last)
 		var w := f - k
 		var p := tbl_p[k].lerp(tbl_p[k + 1], w)
@@ -633,7 +874,7 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 		if normals == null and tangents == null:
 			continue
 		# Jacobian of the mapping: columns d/dx, d/dy, d/dz.
-		var dx := (tbl_p[k + 1] - tbl_p[k] + (tbl_l[k + 1] - tbl_l[k]) * v.z + (tbl_u[k + 1] - tbl_u[k]) * v.y) / STEP
+		var dx := (tbl_p[k + 1] - tbl_p[k] + (tbl_l[k + 1] - tbl_l[k]) * v.z + (tbl_u[k + 1] - tbl_u[k]) * v.y) / step
 		var j := Basis(dx, u, l)
 		if normals != null:
 			out_n[i] = (j.inverse().transposed() * normals[i]).normalized()
