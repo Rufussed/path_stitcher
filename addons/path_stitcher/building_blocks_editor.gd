@@ -143,7 +143,18 @@ func _end_row(title: String, prop: StringName, count_prop: StringName) -> Contro
 		row.add_child(_expander(String(prop)))
 	else:
 		row.add_child(_spacer(BUTTON_WIDTH))
-	row.add_child(_spacer(BUTTON_WIDTH))
+	if pm:
+		var del := Button.new()
+		del.flat = true
+		del.icon = _icon("Remove")
+		if del.icon == null:
+			del.text = "x"
+		del.custom_minimum_size.x = _px(BUTTON_WIDTH)
+		del.tooltip_text = "Remove the %s block" % ("first" if first else "last")
+		del.pressed.connect(_clear_end.bind(prop))
+		row.add_child(del)
+	else:
+		row.add_child(_spacer(BUTTON_WIDTH))
 
 	if not first:
 		var anchor_row := HBoxContainer.new()
@@ -475,6 +486,13 @@ func _on_length_fit(index: int, pm: PathModule) -> void:
 func _create_sequence() -> void:
 	_apply(_stitcher, &"sequence", PathSequence.new(), "Create building blocks")
 	_queue_build()
+
+
+## The trash button on a First / Last row: empties that slot (the count is kept).
+func _clear_end(prop: StringName) -> void:
+	_apply(_stitcher.sequence, prop, null, "Clear %s block" % ("first" if prop == &"start" else "last"))
+	_queue_build()
+
 
 
 func _on_end_scene(res: Resource, prop: StringName) -> void:
