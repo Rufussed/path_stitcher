@@ -59,6 +59,8 @@ var free_roam := false
 var path_following := false
 ## The view and camera ease up after the body rides over a lip (negative = they are
 ## still catching up).
+## Extra visual yaw while turning (radians, + = turned left); eases in and out.
+var _turn_twist := 0.0
 var _step_offset := 0.0
 var _cam_base_y := 0.0
 ## Outward push after hitting a wall (decays), the cooldown before the next one, and
@@ -178,9 +180,12 @@ func _physics_process(delta: float) -> void:
 	var braking := s_down or _brake_hold > 0.0
 	var target_brake := deg_to_rad(p.brake_lean_angle) if braking else 0.0
 	brake_lean = lerpf(brake_lean, target_brake, 1.0 - exp(-p.brake_lean_speed * delta))
+	var twisting := strafe != 0.0 and not airborne
+	var target_twist := -strafe * deg_to_rad(p.turn_twist_angle) if twisting else 0.0
+	_turn_twist = lerpf(_turn_twist, target_twist, 1.0 - exp(-5.0 * delta / maxf(p.turn_twist_time, 0.01)))
 	var target := Basis.looking_at(fwd).rotated(Vector3.UP, deg_to_rad(p.model_yaw_offset))
 	_facing = _facing.slerp(target, minf(1.0, p.turn_rate * delta)).orthonormalized()
-	visual.global_basis = Basis(rgt, brake_lean) * Basis(fwd, lean) * _facing \
+	visual.global_basis = Basis(rgt, brake_lean) * Basis(fwd, lean) * Basis(Vector3.UP, _turn_twist) * _facing \
 			* Basis.from_scale(Vector3.ONE * s)
 
 	# After riding over a lip the view (and camera) ease up to the new height.
@@ -359,6 +364,14 @@ func _apply_scale(s: float) -> void:
 ## kick starts, and a kick in progress at take-off fades out to skate over
 ## `kick_air_cancel_time` without giving its impulse.
 func _update_kick(p: GameParams, s: float, delta: float) -> void:
+	# The kick animation plays through TimeScale nodes in the AnimationTree. Its speed follows
+	# the player's speed, updated every frame, so _kick_time runs in animation
+	# seconds: the impulse lands at kick_impulse_point whatever the speed does mid-kick.
+	var speed_t := clampf((speed / maxf(s, 0.01)) / maxf(p.kick_anim_fast_at, 0.01), 0.0, 1.0)
+	var kick_mul := maxf(lerpf(p.kick_anim_speed_still, p.kick_anim_speed_fast, speed_t) * p.kick_speed, 0.05)
+	var kick_len := _kick_length # animation seconds
+	for node_name in [&"kick_a_speed", &"kick_b_speed"]:
+		anim_tree.set(StringName("parameters/%s/scale" % node_name), kick_mul)
 	if airborne and _kick_time >= 0.0:
 		var tree_root := anim_tree.tree_root as AnimationNodeBlendTree
 		for shot_name in KICK_SHOTS:
@@ -369,17 +382,17 @@ func _update_kick(p: GameParams, s: float, delta: float) -> void:
 		_kick_impulse_given = true
 		return
 
-	var blend := clampf(p.kick_blend_time, 0.0, _kick_length * 0.5)
+	var blend := clampf(p.kick_blend_time, 0.0, kick_len / kick_mul * 0.5) # real seconds
 	if _kick_time >= 0.0:
-		_kick_time += delta
-		if not _kick_impulse_given and _kick_time >= _kick_length * p.kick_impulse_point:
+		_kick_time += delta * kick_mul
+		if not _kick_impulse_given and _kick_time >= kick_len * p.kick_impulse_point:
 			_kick_impulse_given = true
 			if not airborne:
 				speed = minf(p.max_speed * s, speed + p.kick_impulse * s)
 				_fade_rate = speed / maxf(p.rollout, 0.01)
-		if _kick_time >= _kick_length:
+		if _kick_time >= kick_len:
 			_kick_time = -1.0
-	var ready_for_next := _kick_time < 0.0 or (_kick_impulse_given and _kick_time >= _kick_length - blend)
+	var ready_for_next := _kick_time < 0.0 or (_kick_impulse_given and _kick_time >= kick_len - blend * kick_mul)
 	if Input.is_physical_key_pressed(KEY_W) and ready_for_next and not airborne:
 		if _kick_time >= 0.0:
 			_kick_layer = 1 - _kick_layer

@@ -60,6 +60,22 @@ static func set_active(params: GameParams) -> void:
 ## Crossfade time between skate and kick, and between chained kicks (s).
 @export var kick_blend_time := 0.5
 
+## Overall multiplier on the kick animation speed (1 = as set by the speed curve below,
+## 2 = twice that). The impulse still lands at kick_impulse_point of the animation,
+## so the cadence of chained kicks speeds up with it.
+@export_range(0.1, 5.0, 0.05, "or_greater") var kick_speed := 1.0
+
+## The kick animation speeds up with the player's speed, updated every frame: this
+## scale at a standstill, rising linearly to kick_anim_speed_fast at kick_anim_fast_at.
+@export var kick_anim_speed_still := 1.0
+
+## The kick animation scale at kick_anim_fast_at or faster (e.g. 1 at 0, 1.5 at 20, 2 at 40 m/s).
+@export var kick_anim_speed_fast := 2.0
+
+## Player speed at which the kick animation reaches kick_anim_speed_fast (m/s at
+## player_scale 1; the real speed is divided by player_scale before comparing).
+@export var kick_anim_fast_at := 40.0
+
 ## When the skater leaves the ground mid-kick, the kick fades out to the skate
 ## animation over this time (s), so it never plays out in the air.
 @export var kick_air_cancel_time := 0.1
@@ -128,6 +144,15 @@ static func set_active(params: GameParams) -> void:
 
 ## How quickly the skater returns upright when A/D is released.
 @export var lean_return_speed := 14.0
+
+# --- Turn twist (A / D) ---
+
+## While turning the skater model also twists this far further into the turn
+## (degrees), on top of the actual heading change; visual only. 0 = off.
+@export var turn_twist_angle := 10.0
+
+## Time for the twist to ease in when a turn starts and out when it ends (s).
+@export var turn_twist_time := 0.5
 
 # --- Brake lean (S) ---
 

@@ -3,18 +3,13 @@
 [ext_resource type="PackedScene" uid="uid://lbbsl32dpq7d" path="res://blendot_meshes/Block1.blend" id="1_ig7tw"]
 [ext_resource type="Script" uid="uid://cko1fryw2n32a" path="res://main.gd" id="1_ryguw"]
 [ext_resource type="Resource" uid="uid://cutnjukiqrgu5" path="res://game_params.tres" id="2_d13ii"]
-[ext_resource type="Script" uid="uid://b68g5pyfn7ch6" path="res://player/player.gd" id="3_1bvp3"]
-[ext_resource type="Script" uid="uid://q2y0twr2i2yk" path="res://tools/path_axes_follower.gd" id="4_lquwl"]
 [ext_resource type="Script" uid="uid://c5k20uy4dstpd" path="res://tools/sequence/path_marker_entry.gd" id="4_lswn8"]
 [ext_resource type="Script" uid="uid://lbd21tfxqko" path="res://tools/path_stitcher.gd" id="4_ryguw"]
 [ext_resource type="Script" uid="uid://fnjnata0erps" path="res://tools/sequence/path_pattern_entry.gd" id="5_a6jrf"]
-[ext_resource type="PackedScene" uid="uid://bckdn7ji2qojv" path="res://assets/characters/skater/skater.blend" id="5_cegan"]
 [ext_resource type="Script" uid="uid://deo0gxkmk2ahd" path="res://addons/sky_3d/src/Sky3D.gd" id="5_lquwl"]
 [ext_resource type="Shader" uid="uid://cvd0x7lon1ur6" path="res://addons/sky_3d/shaders/SkyMaterial.gdshader" id="5_w48qg"]
 [ext_resource type="Shape3D" uid="uid://cwkyifavyk6ri" path="res://paths/hill_collision.tres" id="5_yaehf"]
-[ext_resource type="AnimationNodeBlendTree" uid="uid://bc4lfjpjkfhk3" path="res://player/skater_anim_tree.tres" id="6_82xsv"]
 [ext_resource type="Texture2D" uid="uid://cfqk60lpl5ljv" path="res://addons/sky_3d/assets/resources/SNoise.tres" id="6_vivmo"]
-[ext_resource type="Script" uid="uid://dido16s7lqdjk" path="res://player/path_camera.gd" id="7_1u8w0"]
 [ext_resource type="Texture2D" uid="uid://cecwdqjol0ckd" path="res://addons/sky_3d/assets/textures/noiseClouds.png" id="7_2cqfq"]
 [ext_resource type="Script" uid="uid://dqle5cbhie10c" path="res://tools/sequence/path_module.gd" id="7_xuqvo"]
 [ext_resource type="Script" uid="uid://bhfotg0hs6k15" path="res://tools/sequence/path_sequence.gd" id="8_qsp4k"]
@@ -23,12 +18,10 @@
 [ext_resource type="PackedScene" uid="uid://n7o0r80vugqs" path="res://blendot_meshes/Block0.blend" id="9_a6jrf"]
 [ext_resource type="Texture2D" uid="uid://bm7dot7t7u1q4" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/StarField.jpg" id="10_cegan"]
 [ext_resource type="PackedScene" uid="uid://dgai0sqovbn77" path="res://blendot_meshes/road1.blend" id="10_xuqvo"]
+[ext_resource type="PackedScene" uid="uid://w2jl7erbrsyh" path="res://player/player.tscn" id="11_1u8w0"]
 [ext_resource type="Texture2D" uid="uid://c1vwcdcdvb74a" path="res://addons/sky_3d/assets/thirdparty/textures/milkyway/Milkyway.jpg" id="11_82xsv"]
 [ext_resource type="Script" uid="uid://b4tkplvh7fq40" path="res://addons/sky_3d/src/SkyDome.gd" id="13_getpj"]
 [ext_resource type="Script" uid="uid://cjmkcj8hwm7ts" path="res://addons/sky_3d/src/TimeOfDay.gd" id="14_ryguw"]
-[ext_resource type="Shader" uid="uid://ne8y7c3mse76" path="res://addons/GPUTrail/shaders/trail.gdshader" id="17_seu75"]
-[ext_resource type="Shader" uid="uid://dgm3kxxtmdeoc" path="res://addons/GPUTrail/shaders/trail_draw_pass.gdshader" id="18_htxhm"]
-[ext_resource type="Script" uid="uid://sfibpcs7xklh" path="res://addons/GPUTrail/GPUTrail3D.gd" id="19_jq2sk"]
 [ext_resource type="Texture2D" uid="uid://djgygg8bi8juh" path="res://ground_checker.png" id="19_seu75"]
 [ext_resource type="Script" uid="uid://7belofjxprv2" path="res://player/hud.gd" id="32_htxhm"]
 
@@ -134,41 +127,6 @@ end_count = 51
 anchor_end = true
 pattern = Array[ExtResource("5_a6jrf")]([SubResource("Resource_0n3wm")])
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_7mycd"]
-radius = 0.4
-height = 1.8
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_4k2k6"]
-shader = ExtResource("17_seu75")
-
-[sub_resource type="Gradient" id="Gradient_0rl1p"]
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
-
-[sub_resource type="GradientTexture1D" id="GradientTexture1D_ok6jj"]
-gradient = SubResource("Gradient_0rl1p")
-
-[sub_resource type="Curve" id="Curve_facbu"]
-bake_resolution = 16
-_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
-point_count = 2
-
-[sub_resource type="CurveTexture" id="CurveTexture_b1qrp"]
-curve = SubResource("Curve_facbu")
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_come4"]
-resource_local_to_scene = true
-render_priority = 0
-shader = ExtResource("18_htxhm")
-shader_parameter/mask_strength = 1.0
-shader_parameter/uv_offset = Vector2(0, 0)
-shader_parameter/color_ramp = SubResource("GradientTexture1D_ok6jj")
-shader_parameter/curve = SubResource("CurveTexture_b1qrp")
-shader_parameter/emmission_transform = Projection(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
-shader_parameter/flags = 40
-
-[sub_resource type="QuadMesh" id="QuadMesh_h8e4i"]
-material = SubResource("ShaderMaterial_come4")
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w48qg"]
 albedo_texture = ExtResource("19_seu75")
 uv1_scale = Vector3(0.125, 0.125, 0.125)
@@ -236,8 +194,8 @@ shader_parameter/cirrus_absorption = 2.0
 shader_parameter/cirrus_sky_tint_fade = 0.5
 shader_parameter/cirrus_size = 1.0
 shader_parameter/cirrus_uv = Vector2(0.16, 0.11)
-shader_parameter/cirrus_position1 = Vector2(0.43770552, 0.43770552)
-shader_parameter/cirrus_position2 = Vector2(0.43770552, 0.43770552)
+shader_parameter/cirrus_position1 = Vector2(0.8775831, 0.8775831)
+shader_parameter/cirrus_position2 = Vector2(0.8775831, 0.8775831)
 shader_parameter/cirrus_texture = ExtResource("6_vivmo")
 shader_parameter/cumulus_visible = true
 shader_parameter/cumulus_intensity = 0.6
@@ -247,7 +205,7 @@ shader_parameter/cumulus_absorption = 2.0
 shader_parameter/cumulus_noise_freq = 2.7
 shader_parameter/cumulus_sky_tint_fade = 0.0
 shader_parameter/cumulus_size = 0.5
-shader_parameter/cumulus_position = Vector2(2.1884634, 2.1884634)
+shader_parameter/cumulus_position = Vector2(4.3885713, 4.3885713)
 shader_parameter/cumulus_texture = ExtResource("7_2cqfq")
 shader_parameter/cumulus_partial_mie_phase = Vector3(0.957564, 1.042436, 0.412)
 shader_parameter/cumulus_mie_intensity = 1.0
@@ -307,52 +265,8 @@ script = ExtResource("4_ryguw")
 flip_side = true
 sequence = SubResource("Resource_wnkbs")
 
-[node name="Player" type="CharacterBody3D" parent="." unique_id=1474213973]
+[node name="Player" parent="." unique_id=949362780 instance=ExtResource("11_1u8w0")]
 transform = Transform3D(0.49132255, 0, 0.8709777, 0, 1, 0, -0.8709777, 0, 0.49132255, 0, 17.5, 0)
-script = ExtResource("3_1bvp3")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=339200488]
-shape = SubResource("CapsuleShape3D_7mycd")
-
-[node name="PathAxesFollower" type="Node" parent="Player" unique_id=1607537745]
-script = ExtResource("4_lquwl")
-
-[node name="CameraPivot" type="Node3D" parent="Player" unique_id=775574565]
-script = ExtResource("7_1u8w0")
-
-[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot" unique_id=675908850]
-transform = Transform3D(1, 0, 0, 0, 0.9393727, 0.3428978, 0, -0.3428978, 0.9393727, 0, 3, 6)
-current = true
-
-[node name="Visual" type="Node3D" parent="Player" unique_id=333490628]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8999996, 0)
-
-[node name="Skater" parent="Player/Visual" unique_id=325772105 instance=ExtResource("5_cegan")]
-
-[node name="BoardTrail" type="GPUParticles3D" parent="Player/Visual/Skater" unique_id=376577939]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0.06, -0.8238678)
-amount = 100
-lifetime = 100.0
-explosiveness = 1.0
-fixed_fps = 60
-process_material = SubResource("ShaderMaterial_4k2k6")
-draw_pass_1 = SubResource("QuadMesh_h8e4i")
-script = ExtResource("19_jq2sk")
-length_seconds = 1.6666666666666667
-color_ramp = SubResource("GradientTexture1D_ok6jj")
-curve = SubResource("CurveTexture_b1qrp")
-_defaults_have_been_set = true
-
-[node name="AnimationTree" type="AnimationTree" parent="Player" unique_id=1451620169]
-root_node = NodePath("../Visual/Skater")
-tree_root = ExtResource("6_82xsv")
-anim_player = NodePath("../Visual/Skater/AnimationPlayer")
-parameters/kick_a_shot/active = false
-parameters/kick_a_shot/internal_active = false
-parameters/kick_a_shot/request = 0
-parameters/kick_b_shot/active = false
-parameters/kick_b_shot/internal_active = false
-parameters/kick_b_shot/request = 0
 
 [node name="Ground" type="StaticBody3D" parent="." unique_id=944029471]
 

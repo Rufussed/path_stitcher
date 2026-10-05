@@ -1,0 +1,138 @@
+[gd_scene format=3 uid="uid://w2jl7erbrsyh"]
+
+[ext_resource type="Script" uid="uid://b68g5pyfn7ch6" path="res://player/player.gd" id="1_hg6s5"]
+[ext_resource type="Script" uid="uid://q2y0twr2i2yk" path="res://tools/path_axes_follower.gd" id="2_8t03j"]
+[ext_resource type="Script" uid="uid://dido16s7lqdjk" path="res://player/path_camera.gd" id="3_2ieo8"]
+[ext_resource type="PackedScene" uid="uid://bckdn7ji2qojv" path="res://assets/characters/skater/skater.blend" id="4_ebec5"]
+[ext_resource type="Shader" uid="uid://ne8y7c3mse76" path="res://addons/GPUTrail/shaders/trail.gdshader" id="5_yllr7"]
+[ext_resource type="Shader" uid="uid://dgm3kxxtmdeoc" path="res://addons/GPUTrail/shaders/trail_draw_pass.gdshader" id="6_kb6p2"]
+[ext_resource type="Texture2D" uid="uid://crk6pkb7e5rwc" path="res://addons/GPUTrail/defaults/texture.tres" id="7_wodsf"]
+[ext_resource type="Script" uid="uid://sfibpcs7xklh" path="res://addons/GPUTrail/GPUTrail3D.gd" id="8_32hag"]
+[ext_resource type="AnimationNodeBlendTree" uid="uid://bc4lfjpjkfhk3" path="res://player/skater_anim_tree.tres" id="9_tqiix"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_7mycd"]
+radius = 0.4
+height = 1.8467773
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_4k2k6"]
+shader = ExtResource("5_yllr7")
+
+[sub_resource type="Gradient" id="Gradient_0rl1p"]
+colors = PackedColorArray(1, 1, 1, 0.6, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_ok6jj"]
+gradient = SubResource("Gradient_0rl1p")
+
+[sub_resource type="Curve" id="Curve_facbu"]
+bake_resolution = 16
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_b1qrp"]
+curve = SubResource("Curve_facbu")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_come4"]
+resource_local_to_scene = true
+render_priority = 0
+shader = ExtResource("6_kb6p2")
+shader_parameter/tex = ExtResource("7_wodsf")
+shader_parameter/mask_strength = 1.0
+shader_parameter/uv_offset = Vector2(0, 0)
+shader_parameter/color_ramp = SubResource("GradientTexture1D_ok6jj")
+shader_parameter/curve = SubResource("CurveTexture_b1qrp")
+shader_parameter/emmission_transform = Projection(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+shader_parameter/flags = 40
+
+[sub_resource type="QuadMesh" id="QuadMesh_h8e4i"]
+material = SubResource("ShaderMaterial_come4")
+
+[node name="Player" type="CharacterBody3D" unique_id=949362780]
+script = ExtResource("1_hg6s5")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1663804205]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.023388684, 0)
+shape = SubResource("CapsuleShape3D_7mycd")
+
+[node name="PathAxesFollower" type="Node" parent="." unique_id=1547150332]
+script = ExtResource("2_8t03j")
+
+[node name="CameraPivot" type="Node3D" parent="." unique_id=648827508]
+script = ExtResource("3_2ieo8")
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot" unique_id=566599590]
+transform = Transform3D(1, 0, 0, 0, 0.9393727, 0.3428978, 0, -0.3428978, 0.9393727, 0, 3, 6)
+current = true
+
+[node name="Visual" type="Node3D" parent="." unique_id=1324405365]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8999996, 0)
+
+[node name="Skater" parent="Visual" unique_id=514441898 instance=ExtResource("4_ebec5")]
+
+[node name="Trail1" type="GPUParticles3D" parent="Visual/Skater" unique_id=1644803141]
+transform = Transform3D(2.1855695e-09, 0.05, 7.54979e-09, 0.05, -2.1855695e-09, 0, 3.3001182e-16, 7.54979e-09, -0.05, 0.1834682, -0.038455438, -0.47520864)
+amount = 100
+lifetime = 100.0
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ShaderMaterial_4k2k6")
+draw_pass_1 = SubResource("QuadMesh_h8e4i")
+script = ExtResource("8_32hag")
+length_seconds = 1.6666666666666667
+color_ramp = SubResource("GradientTexture1D_ok6jj")
+curve = SubResource("CurveTexture_b1qrp")
+_defaults_have_been_set = true
+
+[node name="Trail3" type="GPUParticles3D" parent="Visual/Skater" unique_id=1783461199]
+transform = Transform3D(2.1855695e-09, 0.05, 7.54979e-09, 0.05, -2.1855695e-09, 0, 3.3001182e-16, 7.54979e-09, -0.05, 0.18346806, -0.038455438, 0.4362743)
+amount = 100
+lifetime = 100.0
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ShaderMaterial_4k2k6")
+draw_pass_1 = SubResource("QuadMesh_h8e4i")
+script = ExtResource("8_32hag")
+length_seconds = 1.6666666666666667
+color_ramp = SubResource("GradientTexture1D_ok6jj")
+curve = SubResource("CurveTexture_b1qrp")
+_defaults_have_been_set = true
+
+[node name="Trail4" type="GPUParticles3D" parent="Visual/Skater" unique_id=947680315]
+transform = Transform3D(2.1855695e-09, 0.05, 7.54979e-09, 0.05, -2.1855695e-09, 0, 3.3001182e-16, 7.54979e-09, -0.05, -0.18515606, -0.038455423, 0.43627423)
+amount = 100
+lifetime = 100.0
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ShaderMaterial_4k2k6")
+draw_pass_1 = SubResource("QuadMesh_h8e4i")
+script = ExtResource("8_32hag")
+length_seconds = 1.6666666666666667
+color_ramp = SubResource("GradientTexture1D_ok6jj")
+curve = SubResource("CurveTexture_b1qrp")
+_defaults_have_been_set = true
+
+[node name="Trail2" type="GPUParticles3D" parent="Visual/Skater" unique_id=63730581]
+transform = Transform3D(2.1855695e-09, 0.05, 7.54979e-09, 0.05, -2.1855695e-09, 0, 3.3001182e-16, 7.54979e-09, -0.05, -0.1836085, -0.038455423, -0.4752087)
+amount = 100
+lifetime = 100.0
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ShaderMaterial_4k2k6")
+draw_pass_1 = SubResource("QuadMesh_h8e4i")
+script = ExtResource("8_32hag")
+length_seconds = 1.6666666666666667
+color_ramp = SubResource("GradientTexture1D_ok6jj")
+curve = SubResource("CurveTexture_b1qrp")
+_defaults_have_been_set = true
+
+[node name="AnimationTree" type="AnimationTree" parent="." unique_id=1975182094]
+root_node = NodePath("../Visual/Skater")
+tree_root = ExtResource("9_tqiix")
+anim_player = NodePath("../Visual/Skater/AnimationPlayer")
+parameters/kick_a_shot/active = false
+parameters/kick_a_shot/internal_active = false
+parameters/kick_a_shot/request = 0
+parameters/kick_b_shot/active = false
+parameters/kick_b_shot/internal_active = false
+parameters/kick_b_shot/request = 0
+parameters/kick_a_speed/scale = 2.0
+parameters/kick_b_speed/scale = 2.0
