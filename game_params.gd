@@ -250,9 +250,11 @@ static func set_active(params: GameParams) -> void:
 
 @export_group("COLLISIONS")
 
-## Lips up to this height are ridden over without slowing down (m at player_scale 1).
-## Taller things are walls. 0 turns stepping off.
-@export var step_height := 0.4
+## Lips up to this height above the player's feet are ridden over without slowing
+## down: the collision is ignored and the view eases up to the new ground height.
+## World metres, not scaled by player_scale (lips belong to the world). Taller things
+## are walls. 0 turns stepping off.
+@export var step_height := 1.0
 
 ## How quickly the view and camera catch up after riding over a lip (higher =
 ## quicker). The player's body moves up at once; only the view eases.
@@ -261,7 +263,7 @@ static func set_active(params: GameParams) -> void:
 ## On hitting a wall the player keeps the part of his speed that runs along it and
 ## slides frictionlessly, and is pushed this far back off it (m at player_scale 1).
 ## 0 turns the rebound off.
-@export var wall_rebound_distance := 0.5
+@export var wall_rebound_distance := 1.0
 
 ## A hit has to push into the wall at least this fast to rebound (m/s at
 ## player_scale 1), so grazing a wall just slides.

@@ -163,7 +163,7 @@ func _physics_process(delta: float) -> void:
 				move -= rn * into # while pushing off a wall, don't push back into it
 		velocity.x = move.x + _rebound.x
 		velocity.z = move.z + _rebound.z
-		_try_step(p, s, delta)
+		_try_step(p, delta)
 	var v_before := Vector3(velocity.x, 0.0, velocity.z)
 	move_and_slide()
 	_wall_response(p, s, v_before)
@@ -264,29 +264,46 @@ func _facing_forward(p: GameParams) -> Vector3:
 	return f.normalized() if f.length() > 0.001 else Vector3.FORWARD
 
 
-## Lets him ride over a small lip in his way (up to `step_height`): the body moves
-## up at once and the horizontal speed is untouched; only the view eases up, via
-## `_step_offset`.
-func _try_step(p: GameParams, s: float, delta: float) -> void:
+## Lets him ride over a lip (anything that blocks only the lowest `step_height`
+## of him): the collision is ignored, the body moves up to the new ground height
+## at once with the horizontal speed untouched, and only the view eases up, via
+## `_step_offset`. `step_height` is in world metres (not scaled by player_scale).
+## A walkable slope is not a lip: the ground a little ahead must rise more than a
+## 45 degree slope would.
+func _try_step(p: GameParams, delta: float) -> void:
 	var h := Vector3(velocity.x, 0.0, velocity.z)
 	if p.step_height <= 0.0 or h.length() < 0.05:
 		return
 	var motion := h * delta
-	var hit := KinematicCollision3D.new()
-	if not test_move(global_transform, motion, hit) or hit.get_normal().y > 0.7:
-		return # nothing in the way, or a slope he can simply walk up
-	var max_up := p.step_height * s
+	if not test_move(global_transform, motion):
+		return # nothing in the way this frame
+	var max_up := p.step_height
 	var raised := global_transform.translated(Vector3.UP * max_up)
 	if test_move(raised, motion):
 		return # taller than the step height: a real wall
-	var down := KinematicCollision3D.new()
-	if not test_move(raised.translated(motion), Vector3.DOWN * max_up * 1.02, down):
+	var probe := maxf(capsule.radius * 0.5, 0.02)
+	var here := _ground_rise(raised, max_up)
+	var ahead := _ground_rise(raised.translated(h.normalized() * probe), max_up)
+	if here < -50.0 or ahead < -50.0 or ahead - here <= probe + 0.01:
+		return # no ground to stand on, or just a walkable slope
+	var land := _ground_rise(raised.translated(motion), max_up)
+	if land < -50.0:
 		return # nothing to stand on past the lip
-	var rise := clampf(max_up - down.get_travel().length() + 0.002, 0.0, max_up)
+	var rise := clampf(land + 0.002, 0.0, max_up)
 	if rise <= 0.0:
 		return
 	global_position.y += rise
 	_step_offset -= rise
+
+
+## Height of the ground under `from` (a transform raised by `max_up`), measured
+## from the player's original feet level; -100 if there is none within reach.
+func _ground_rise(from: Transform3D, max_up: float) -> float:
+	var down := KinematicCollision3D.new()
+	if not test_move(from, Vector3.DOWN * (max_up + 0.05), down):
+		return -100.0
+	return max_up - down.get_travel().length()
+
 
 
 ## After moving: a wall keeps the part of his speed that runs along it (the engine

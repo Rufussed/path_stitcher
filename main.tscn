@@ -29,6 +29,7 @@
 [ext_resource type="Shader" uid="uid://ne8y7c3mse76" path="res://addons/GPUTrail/shaders/trail.gdshader" id="17_seu75"]
 [ext_resource type="Shader" uid="uid://dgm3kxxtmdeoc" path="res://addons/GPUTrail/shaders/trail_draw_pass.gdshader" id="18_htxhm"]
 [ext_resource type="Script" uid="uid://sfibpcs7xklh" path="res://addons/GPUTrail/GPUTrail3D.gd" id="19_jq2sk"]
+[ext_resource type="Texture2D" uid="uid://djgygg8bi8juh" path="res://ground_checker.png" id="19_seu75"]
 [ext_resource type="Script" uid="uid://7belofjxprv2" path="res://player/hud.gd" id="32_htxhm"]
 
 [sub_resource type="Curve3D" id="Curve3D_h2yge"]
@@ -80,7 +81,7 @@ markers = Array[ExtResource("4_lswn8")]([SubResource("Resource_b1qrp")])
 
 [sub_resource type="Curve3D" id="Curve3D_facbu"]
 _data = {
-"points": PackedVector3Array(-15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 4.785905, 124.8, -15.149227, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 51.345222, 124.8, 3.722083, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 119.15092, 114.757866, -32.72127, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 147.23729, 124.8, 32.089493, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 195.18333, 124.8, 46.273197),
+"points": PackedVector3Array(-15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 4.785905, 124.8, -15.149227, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 51.345222, 124.8, 3.722083, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 119.15092, 114.757866, -32.72127, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 147.23729, 124.8, 32.089493, -15.982013, 0, -4.7279015, 15.982013, 0, 4.7279015, 194.54149, 124.738754, 51.519016),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0)
 }
 point_count = 5
@@ -123,7 +124,7 @@ module = SubResource("Resource_gngh3")
 [sub_resource type="Resource" id="Resource_qnost"]
 script = ExtResource("7_xuqvo")
 scene = ExtResource("9_a6jrf")
-offset_px = -200.0
+offset_px = 87.5
 
 [sub_resource type="Resource" id="Resource_wnkbs"]
 script = ExtResource("8_qsp4k")
@@ -169,7 +170,11 @@ shader_parameter/flags = 40
 material = SubResource("ShaderMaterial_come4")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w48qg"]
-albedo_color = Color(0.25, 0.5, 0.2, 1)
+albedo_texture = ExtResource("19_seu75")
+uv1_scale = Vector3(0.125, 0.125, 0.125)
+uv1_triplanar = true
+uv1_triplanar_sharpness = 8.0
+uv1_world_triplanar = true
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_vivmo"]
 top_radius = 118.0
@@ -231,8 +236,8 @@ shader_parameter/cirrus_absorption = 2.0
 shader_parameter/cirrus_sky_tint_fade = 0.5
 shader_parameter/cirrus_size = 1.0
 shader_parameter/cirrus_uv = Vector2(0.16, 0.11)
-shader_parameter/cirrus_position1 = Vector2(0.50129986, 0.50129986)
-shader_parameter/cirrus_position2 = Vector2(0.50129986, 0.50129986)
+shader_parameter/cirrus_position1 = Vector2(0.43770552, 0.43770552)
+shader_parameter/cirrus_position2 = Vector2(0.43770552, 0.43770552)
 shader_parameter/cirrus_texture = ExtResource("6_vivmo")
 shader_parameter/cumulus_visible = true
 shader_parameter/cumulus_intensity = 0.6
@@ -242,7 +247,7 @@ shader_parameter/cumulus_absorption = 2.0
 shader_parameter/cumulus_noise_freq = 2.7
 shader_parameter/cumulus_sky_tint_fade = 0.0
 shader_parameter/cumulus_size = 0.5
-shader_parameter/cumulus_position = Vector2(42.641228, 42.641228)
+shader_parameter/cumulus_position = Vector2(2.1884634, 2.1884634)
 shader_parameter/cumulus_texture = ExtResource("7_2cqfq")
 shader_parameter/cumulus_partial_mie_phase = Vector3(0.957564, 1.042436, 0.412)
 shader_parameter/cumulus_mie_intensity = 1.0
