@@ -1,14 +1,26 @@
-# PathMesh3D: Deformation & Path-Relative Movement Spec
+# PathStitcher Spec
 
-Oct 3, 2026 · Rufus Lane · Living version: https://claude.ai/code/artifact/d2d8847d-dbfe-4105-8e40-8fb3cc5e4bfd
+Rufus Lane · The PathStitcher tool: deforming and repeating modular meshes along a Curve3D, with an optional path-relative movement system. The scene it is being tested in is described in `SkateOrDie_TestCase.md`.
 
 ## Purpose and scope
 
-The tool repeats a modular mesh along a Curve3D, deforming it so neighbouring modules meet seamlessly. It also, optionally, gives characters movement axes taken from the nearest path. Both are general-purpose Godot features. The Tower of Babel is the first test case.
+PathStitcher repeats modular meshes along a Curve3D, deforming them so neighbouring modules meet seamlessly. It also, optionally, gives characters movement axes taken from the nearest path. Both are general-purpose Godot features; the Tower of Babel scene is the first test case.
 
-- **Deformation (core):** repeat a source module every N metres, wedging it to the local curvature and shearing it to the local slope. This replaces the rigid placement that leaves gaps and lips.
-- **Movement axes (optional, enabled for this test):** each path supplies forward, back, left and right vectors at the player's position. Paths can branch, and the nearest path becomes the provider. This only supplies axes; it never locks the player to the path.
-- **Prototype:** a GDScript `@tool` node first. A GDExtension, and possibly a proposal to Godot core (alongside proposal #12844), comes later once the API is proven.
+- **Deformation (core):** lay modules end to end along a path, wedging each to the local curvature and shearing it to the local slope, so seams close exactly. This replaces the rigid placement that leaves gaps and lips.
+- **Movement axes (optional):** each path supplies forward, back, left and right vectors at the player's position. Paths can branch, and the nearest path becomes the provider. This only supplies axes; it never locks the player to the path.
+- **Prototype:** a GDScript `@tool` addon first. A GDExtension, and possibly a proposal to Godot core (alongside proposal #12844), comes later once the API is proven.
+
+## File layout
+
+```
+addons/path_stitcher/
+  path_stitcher.gd          the PathStitcher node
+  path_ground_draper.gd     PathGroundDraper (drape a path onto the ground)
+  sequence/                 PathModule, PathPatternEntry, PathSequence, PathMarkerEntry, PathMarker
+  movement/                 PathAxesFollower (the optional movement axes)
+  plugin.gd, inspector_plugin.gd, building_blocks_editor.gd, bend_property.gd, scene_picker.gd
+                            the Inspector editor plugin
+```
 
 ## Path coordinates (px, py, pz)
 
@@ -89,7 +101,7 @@ The wedge and shear both vary along the spiral, so they are computed for each mo
 
 ## Current implementation
 
-`PathStitcher` (`res://tools/path_stitcher.gd`, formerly `PathMeshDeformer`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. In `main.tscn` the nodes are `SpiralPath/TowerStitcher` (the tower: 50 m radius at the base, shrinking 5 m per revolution and stopping at 11 m after 7.8 revolutions, 124.8 m up), `BridgePath/BridgeStitcher` (a level bridge from the top of the tower) and `Tower2Path/Tower2Stitcher` (the tower path reversed, top to bottom, set down where the bridge ends), each a child of the path it follows. What it places comes from a `PathSequence` (see "Module sequences"); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
+`PathStitcher` (`res://addons/path_stitcher/path_stitcher.gd`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. Each stitcher is a child of the path it follows. What it places comes from a `PathSequence` (see "Module sequences"); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
 
 | Property | Type | Purpose |
 | --- | --- | --- |
@@ -168,9 +180,9 @@ Source parts stay separate in Blender; merging happens on every rebuild.
 
 ### Draping a path onto the ground
 
-`PathGroundDraper` (`res://tools/path_ground_draper.gd`), a child of a Path3D, has a **Drape** button. It optionally re-spaces the points (`resample_spacing`), ray-casts each point straight down onto physics collision, sets its height to the hit plus `height_offset`, rebuilds smooth handles, and with `bank_to_ground` sets each point's tilt so the curve's up vector matches the ground normal. Generated modules are ignored, and the change is one undoable editor action. Use with `up_mode = PATH`.
+`PathGroundDraper` (`res://addons/path_stitcher/path_ground_draper.gd`), a child of a Path3D, has a **Drape** button. It optionally re-spaces the points (`resample_spacing`), ray-casts each point straight down onto physics collision, sets its height to the hit plus `height_offset`, rebuilds smooth handles, and with `bank_to_ground` sets each point's tilt so the curve's up vector matches the ground normal. Generated modules are ignored, and the change is one undoable editor action. Use with `up_mode = PATH`.
 
-On the Tower of Babel hill (the hill road has since been removed from the scene) (a 20 m cone frustum whose top, at Y = 16, buries the tower's first turn), the draped road sits within 3 cm of the slope and banks 3.5° to 5.6°; at the ridge crease the single-quad road piece floats up to 0.3 m.
+On the original Tower of Babel hill (a 20 m cone frustum whose top, at Y = 16, buries the tower's first turn), the draped road sits within 3 cm of the slope and banks 3.5° to 5.6°; at the ridge crease the single-quad road piece floats up to 0.3 m.
 
 ## Module sequences
 
@@ -392,47 +404,21 @@ velocity = (a.forward * input.y + a.right * input.x) * speed
 move_and_slide()
 ```
 
-## Test player and tuning
-
-The Tower of Babel test uses a skateboarding player that consumes the movement axes. It is game code, not part of the reusable system, but it exercises every axis feature.
-
-**Tuning.** All play values live in one `GameParams` resource (`res://game_params.gd`, instance `res://game_params.tres`) assigned to the scene root (`main.gd`); scripts read `GameParams.get_active()`. Groups: PLAYER SCALE, SKATING, SKATER VISUAL, CAMERA, PATH AXES. Edits reach a running game live. `PathAxesFollower.use_game_params` (default on) takes its switch/blend/max distances from there.
-
-| Input | Effect |
-| --- | --- |
-| W | Kick (skate/kick animation blend); holding chains kicks, crossfading between two kick layers; impulse lands at `kick_impulse_point` of the animation |
-| S | Brake impulse (never below zero) and a lean back towards the camera |
-| A / D | Strafe, lean, and turn (yaw) at `turn_speed` up to `turn_max`; snaps back on release |
-| Turn past `reverse_angle` / `forward_return_angle` (both 90°) | Travel direction flips: the path's backward direction becomes forward (backtracking), and back again |
-| Arrow keys | Orbit the camera; left/right also steer the movement forward (`steer_with_camera`), easing back on release |
-| − / + | Zoom; held for `camera_zoom_hold` then eases back |
-| Space | Jump |
-| Left Shift | Toggle path following / free roaming (arrow at the bottom centre of the screen) |
-
-- **Speed model:** each kick adds `kick_impulse` up to `max_speed`; speed fades linearly to zero over `rollout` seconds from the last impulse; a wall keeps the part of the speed along it (below), and a near head-on hit takes the speed away so it cannot build up against the wall.
-- **Airborne:** horizontal velocity is frozen at take-off; no kicking, turning or braking; a kick in progress fades to skate over `kick_air_cancel_time`.
-- **Camera follow:** dead zone up to `camera_follow_start` (20°) between camera and skater heading, then a linear ramp to the skater's `turn_speed` at `camera_follow_lock` (30°), which is a hard limit; re-centres on the travel forward with a smooth damp over `camera_recenter_time`. The camera follows the A/D heading but not camera steering (which comes from the camera itself).
-- **Lips and walls (COLLISIONS in `GameParams`):** `step_height` (0.4 m at player_scale 1): a low obstacle in his way is stepped over with no loss of speed; the body rises at once and the view and camera ease up at `step_smooth_speed`. On hitting a wall he keeps the component of his speed that runs along it and slides along it without friction (the engine slide, with the old speed clamp removed). A first hit pushing into the wall at least `wall_rebound_min_speed` (3 m/s) also pushes him back off along the surface normal by `wall_rebound_distance` (0.5 m, 0 = off), once per 0.5 s. Rebound is ground only.
-- **Board trail:** a `GPUTrail3D` node (the GPUTrail addon by celyk, MIT, `res://addons/GPUTrail/`) named `BoardTrail` under the skater, at the tail end of the board.
-- **Player scale:** `player_scale` multiplies the model, collider, camera distances, speeds and jump; with `scale_gravity` gravity scales too, so a small player moves like a normal-sized person and the world reads as giant.
-
 ## Acceptance tests
+
+Tool-level checks. The scene-specific ones are in `SkateOrDie_TestCase.md`.
 
 | Test | Pass when |
 | --- | --- |
 | Straight path | Modules match the source exactly, no deformation |
 | Constant arc | No gaps; outer face longer and inner face shorter by z × Δθ |
 | Straight ramp | Adjacent floors and arches meet with no vertical lip |
-| Tower of Babel spiral | Wedge and shear combine cleanly over all 550 modules |
-| Changing curvature | Seams stay closed as the radius goes from 100 m to 75 m |
 | Collision | `ColVis-` floors are visible and walkable; `Col-` meshes collide but do not render |
 | Axes on a straight path | Forward equals the path direction; right is horizontal and perpendicular |
-| Axes on the spiral | Holding forward walks the player up the ramp without steering |
-| Free movement | The player can step off the path line in any direction; nothing pulls them back |
 | Branch at a fork | The active path changes only after crossing the switch margin; no flicker |
 | Blend at a fork | Forward turns smoothly through the blend zone, with no frame-to-frame jump over 5° |
 | Opposed branches | Forward does not reverse or cancel where two paths meet head-on |
-| Out of range | Beyond `max_distance`, `has_path` is false and the last axes are kept |
+| Out of range | Beyond `max_distance` (or with a second path within `ambiguity_distance`), `has_path` is false and the player free roams |
 
 ## Roadmap
 
@@ -440,19 +426,15 @@ The Tower of Babel test uses a skateboarding player that consumes the movement a
 - [x] Centred-Z modules, 5 m spacing with overlap, trimesh collision
 - [x] `Col-` / `ColVis-` naming, double-sided trimesh collision
 - [ ] Close visual check of the seams on the spiral
-- [x] Movement axes: `PathAxesFollower` (nearest path in the `movement_paths` group, hysteresis, blending), skater player on the tower and bridge
+- [x] Movement axes: `PathAxesFollower` (nearest path in the `movement_paths` group, hysteresis, blending), see the test case
 - [ ] `PathAxesField` (shared query node) — the follower currently queries the group directly
 - [ ] Branching: a test fork to verify hysteresis, blending and opposed-branch handling in play (implemented, untested)
 - [x] Ends-only deformation: Bend: Linear
 - [x] Merge parts by material and chunk modules (draw calls ~30,900 → ~770)
 - [x] `up_mode` PATH, `PathGroundDraper`
-- [x] Skater player and tuning (see "Test player and tuning")
 - [x] Module sequences: `PathModule` / `PathSequence` resources, first / sequence / last blocks, fit modes, anchored end, weighted random sequences, markers, `PathMarker`, live rebuild, summary readout
 - [x] BUILDING BLOCKS Inspector (editor plugin): reorderable rows, counts, per-block length / overlap / py / pz offsets, undo
 - [x] End Offset; per-block Offset (px along the curve, py, pz); First/Last px move the sequence start and end; Repeat toggle
-- [x] Free roaming and Left Shift path following, with the HUD arrow; ambiguity distance; hidden paths ignored
-- [x] Step over small lips, frictionless wall sliding and rebound
-- [x] Level bridge from the tower top to a second, reversed tower
 - [ ] Per-module `up_mode` / `flip_side` overrides on `PathModule`
 - [ ] Closed-loop paths (pattern wraps, no start/end)
 - [x] Bend option (Full | Linear) and GPU instancing for Linear
@@ -466,4 +448,3 @@ The Tower of Babel test uses a skateboarding player that consumes the movement a
 - Should forward follow the slope by default (`forward`) or stay level (`forward_flat`)? The test player uses `forward_flat` and lets physics handle height.
 - Should the movement axes come from a separate centre-line path, so the walking line can differ from the line the meshes follow?
 - Is nearest-path enough, or do some forks need a hint, such as a priority value per path?
-- Resolved: the camera is game code. The test camera follows the player's heading with a dead zone, a ramp and a hard limit.
