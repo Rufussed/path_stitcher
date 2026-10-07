@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://w2jl7erbrsyh"]
 
 [ext_resource type="Script" uid="uid://b68g5pyfn7ch6" path="res://player/player.gd" id="1_hg6s5"]
-[ext_resource type="Script" uid="uid://q2y0twr2i2yk" path="res://tools/path_axes_follower.gd" id="2_8t03j"]
+[ext_resource type="Script" uid="uid://q2y0twr2i2yk" path="res://addons/path_stitcher/movement/path_axes_follower.gd" id="2_8t03j"]
 [ext_resource type="Script" uid="uid://dido16s7lqdjk" path="res://player/path_camera.gd" id="3_2ieo8"]
 [ext_resource type="PackedScene" uid="uid://bckdn7ji2qojv" path="res://assets/characters/skater/skater.blend" id="4_ebec5"]
 [ext_resource type="Shader" uid="uid://ne8y7c3mse76" path="res://addons/GPUTrail/shaders/trail.gdshader" id="5_yllr7"]
