@@ -6,7 +6,8 @@ extends CharacterBody3D
 ## W: kick. Holding W chains kicks; each kick gives a forward speed impulse at
 ## `kick_impulse_point` through the animation (0.5 = halfway).
 ## S (on press): brake impulse; speed never goes below zero (no rolling back).
-## The skater leans back while braking.
+## The skater leans back while braking, which also cancels any kick; with the
+## lean fully back the board tail throws sparks.
 ## Speed fades linearly to zero over `rollout` seconds from the last impulse.
 ## A/D: strafe left/right relative to the path, lean into it, and turn (yaw)
 ## the skater while held; the turn snaps back to the forward on release.
@@ -89,6 +90,7 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 @onready var axes: PathAxesFollower = $PathAxesFollower
 @onready var visual: Node3D = $Visual
 @onready var anim_tree: AnimationTree = $AnimationTree
+@onready var sparks: GPUParticles3D = $Visual/Skater/Sparks
 @onready var capsule: CapsuleShape3D = $CollisionShape3D.shape
 
 
@@ -172,25 +174,33 @@ func _physics_process(delta: float) -> void:
 
 
 	# Face along the movement forward, then lean: sideways about the direction
-	# of travel (A/D) and backwards about the right axis (braking). Visual's
-	# origin is at the feet, so both leans pivot on the board.
+	# of travel (A/D, about Visual's origin on the board) and backwards about
+	# the right axis (braking, about the back wheels - see brake_pivot).
 	var target_lean := strafe * deg_to_rad(p.lean_angle)
 	var rate: float = p.lean_speed if strafe != 0.0 else p.lean_return_speed
 	lean = lerpf(lean, target_lean, 1.0 - exp(-rate * delta))
 	var braking := s_down or _brake_hold > 0.0
 	var target_brake := deg_to_rad(p.brake_lean_angle) if braking else 0.0
 	brake_lean = lerpf(brake_lean, target_brake, 1.0 - exp(-p.brake_lean_speed * delta))
+	sparks.emitting = not airborne and speed > p.spark_min_speed * s \
+			and brake_lean >= deg_to_rad(p.brake_lean_angle) * p.spark_lean_threshold
 	var twisting := strafe != 0.0 and not airborne
 	var target_twist := -strafe * deg_to_rad(p.turn_twist_angle) if twisting else 0.0
 	_turn_twist = lerpf(_turn_twist, target_twist, 1.0 - exp(-5.0 * delta / maxf(p.turn_twist_time, 0.01)))
 	var target := Basis.looking_at(fwd).rotated(Vector3.UP, deg_to_rad(p.model_yaw_offset))
 	_facing = _facing.slerp(target, minf(1.0, p.turn_rate * delta)).orthonormalized()
-	visual.global_basis = Basis(rgt, brake_lean) * Basis(fwd, lean) * Basis(Vector3.UP, _turn_twist) * _facing \
+	var body_basis := Basis(fwd, lean) * Basis(Vector3.UP, _turn_twist) * _facing \
 			* Basis.from_scale(Vector3.ONE * s)
+	var brake_basis := Basis(rgt, brake_lean)
+	visual.global_basis = brake_basis * body_basis
 
 	# After riding over a lip the view (and camera) ease up to the new height.
 	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-p.step_smooth_speed * delta))
-	visual.position.y = _base_visual_pos.y * s + _step_offset
+	# The brake lean turns about the back wheels, not Visual's origin: shift
+	# Visual so that point stays where it was before the brake rotation.
+	var pivot_offset: Vector3 = body_basis * p.brake_pivot
+	var pivot_shift := pivot_offset - brake_basis * pivot_offset
+	visual.position = _base_visual_pos * s + Vector3(0.0, _step_offset, 0.0) + global_basis.inverse() * pivot_shift
 	var pivot := get_node_or_null(^"CameraPivot")
 	if pivot:
 		pivot.position.y = _cam_base_y + _step_offset
@@ -372,11 +382,13 @@ func _update_kick(p: GameParams, s: float, delta: float) -> void:
 	var kick_len := _kick_length # animation seconds
 	for node_name in [&"kick_a_speed", &"kick_b_speed"]:
 		anim_tree.set(StringName("parameters/%s/scale" % node_name), kick_mul)
-	if airborne and _kick_time >= 0.0:
+	# Braking (S) kills a kick like take-off does: it fades out to skate.
+	var braking := Input.is_physical_key_pressed(KEY_S) or _brake_hold > 0.0
+	if (airborne or braking) and _kick_time >= 0.0:
 		var tree_root := anim_tree.tree_root as AnimationNodeBlendTree
 		for shot_name in KICK_SHOTS:
 			var shot := tree_root.get_node(shot_name) as AnimationNodeOneShot
-			shot.fadeout_time = maxf(p.kick_air_cancel_time, 0.0)
+			shot.fadeout_time = maxf(p.kick_air_cancel_time if airborne else p.kick_brake_cancel_time, 0.0)
 			anim_tree.set(StringName("parameters/%s/request" % shot_name), AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
 		_kick_time = -1.0
 		_kick_impulse_given = true
@@ -393,7 +405,7 @@ func _update_kick(p: GameParams, s: float, delta: float) -> void:
 		if _kick_time >= kick_len:
 			_kick_time = -1.0
 	var ready_for_next := _kick_time < 0.0 or (_kick_impulse_given and _kick_time >= kick_len - blend * kick_mul)
-	if Input.is_physical_key_pressed(KEY_W) and ready_for_next and not airborne:
+	if Input.is_physical_key_pressed(KEY_W) and ready_for_next and not airborne and not braking:
 		if _kick_time >= 0.0:
 			_kick_layer = 1 - _kick_layer
 		var shot := (anim_tree.tree_root as AnimationNodeBlendTree).get_node(KICK_SHOTS[_kick_layer]) as AnimationNodeOneShot

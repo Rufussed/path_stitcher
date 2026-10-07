@@ -74,14 +74,18 @@ static func set_active(params: GameParams) -> void:
 
 ## Player speed at which the kick animation reaches kick_anim_speed_fast (m/s at
 ## player_scale 1; the real speed is divided by player_scale before comparing).
-@export var kick_anim_fast_at := 40.0
+@export var kick_anim_fast_at := 100.0
 
 ## When the skater leaves the ground mid-kick, the kick fades out to the skate
 ## animation over this time (s), so it never plays out in the air.
 @export var kick_air_cancel_time := 0.1
 
+## Seconds a kick in progress takes to fade out to the skate animation when S
+## (braking) is pressed.
+@export var kick_brake_cancel_time := 0.1
+
 ## Speed removed by each brake press (m/s).
-@export var brake_impulse := 3.0
+@export var brake_impulse := 70
 
 ## Seconds for speed to fade from its value at the last kick impulse to zero.
 @export var rollout := 10.0
@@ -157,13 +161,25 @@ static func set_active(params: GameParams) -> void:
 # --- Brake lean (S) ---
 
 ## How far the skater leans back (towards the camera) when braking (degrees).
-@export var brake_lean_angle := 10.0
+@export var brake_lean_angle := 35.0
 
 ## Minimum time the brake lean is held after a tap of S (s).
-@export var brake_lean_time := 0.4
+@export var brake_lean_time := 0.1
 
 ## How quickly the brake lean comes in and goes out.
 @export var brake_lean_speed := 10.0
+
+## The point the brake lean pivots about, in the skater model's local space
+## (metres, before scaling): the centre of the back wheels, so the board's back
+## wheels stay planted while the nose lifts.
+@export var brake_pivot := Vector3(0.0, 0.019, -0.474)
+
+## Sparks from the dragging board tail start once the brake lean reaches this
+## fraction of brake_lean_angle (1 = fully back).
+@export_range(0.0, 1.0, 0.01) var spark_lean_threshold := 0.9
+
+## No sparks below this ground speed (m/s): a stopped board isn't dragging.
+@export var spark_min_speed := 1.0
 
 
 
@@ -179,10 +195,10 @@ static func set_active(params: GameParams) -> void:
 # --- Framing ---
 
 ## Default distance behind the player (m at player_scale 1).
-@export var camera_distance := 8.0
+@export var camera_distance := 4.0
 
 ## Default camera height above the player's ground (m).
-@export var camera_height := 3.0
+@export var camera_height := 2.5
 
 ## Height above the player's ground the camera looks at (m).
 @export var camera_look_height := 1.2
