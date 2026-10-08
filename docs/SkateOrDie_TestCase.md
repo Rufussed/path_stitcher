@@ -13,6 +13,7 @@ SkateOrDie is not a game; it is a test bed. It exercises every PathStitcher feat
 - **Bridge (`BridgePath` / `BridgeStitcher`):** starts exactly at the top of the tower and runs roughly level to the start of the second tower (200 m as first built; since bent by hand). Blocks: `road1`.
 - **Second tower (`Tower2Path` / `Tower2Stitcher`):** the tower path reversed (top to bottom), turned 180° so it continues in the bridge's heading, with its start at the bridge end. Same blocks with First and Last swapped and **Flip Side on**, so the arcades stay on the outside. Together the three paths form one continuous route.
 - **Ground and sky:** a green cone-frustum ground and the Sky3D addon. The ground was built for the original tower and the hill road (since removed), so it no longer matches the towers.
+- **Block textures:** the four Blender blocks (`Block0`, `Block1`, `road1`, `Road`) share six 512 × 512 WebP textures (basecolor lossy, normal and roughness lossless) in `blendot_meshes/textures/`, referenced by relative path from each `.blend` the same way the skater's textures are, instead of 4096 px copies packed into every file. Each `.blend` is about 100 KB (was about 9 MB).
 - **Block conventions:** X along the path, Y up, Z sideways, origin at the centre; `Col-` and `ColVis-` prefixes for collision; `Block1` has 0.5 m built-in overlap at each end.
 
 ## Test player and tuning
