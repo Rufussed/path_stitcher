@@ -8,17 +8,19 @@ extends Node3D
 ## Add it as a child of the Path3D it follows: Path Node is then filled in
 ## automatically (to the parent). Or put it anywhere and set `path_node`.
 ##
-## What is placed comes from `sequence` (a PathSequence): an optional first
-## block, a block sequence (repeated in order or a seeded random draw), an
-## optional last block, and markers. Edit it in the BUILDING BLOCK SEQUENCE
-## section of the Inspector (the PathStitcher editor plugin).
+## What is placed comes from `sections` (PathSection resources, laid end to end).
+## Each has an optional first block, a block sequence (repeated in order or a
+## seeded random draw), an optional last block and a length; markers put specific
+## blocks at specific distances across all sections. Edit them in the BUILDING
+## BLOCKS section of the Inspector (the PathStitcher editor plugin).
 ##
 ## Module axes: X = along the path (px), Y = up (py), Z = lateral (pz), origin
 ## at the centre of X. A module placed between path distances s0 and s1 maps a
 ## vertex (x, y, z) to
 ##     V = P(s) + z * L(s) + y * U(s),   s = (s0 + s1) / 2 + x * (s1 - s0) / length
-## where P is the curve point, L the lateral (left) direction and U the up
-## direction. Adjacent modules evaluate the same s at their shared joint, so the
+## where P is the curve point, L the lateral direction (to the right of travel, so a
+## block is a plain rotation of what you authored; to the left with Flip Side)
+## and U the up direction. Adjacent modules evaluate the same s at their shared joint, so the
 ## seams meet exactly even between different module types.
 ##
 ## up_mode WORLD: U is world up and L horizontal, so walls stay vertical and
@@ -55,8 +57,10 @@ signal rebuilt
 
 @export_group("SHAPE")
 ## How blocks follow the curve.
-## Full: bends with the path (organic forms).
-## Linear: straight blocks, ends matched - full instancing, GPU optimized.
+## Linear: GPU instancing. Each block is distorted to match its two end frames;
+## seams meet exactly. Cheapest.
+## Full: fits every mesh vertex to the curve so blocks can bend. GPU instancing
+## cannot be used, so it is more expensive. More mesh vertices give smoother curve matching.
 @export var bend := Bend.LINEAR:
 	set(value):
 		bend = value
@@ -78,7 +82,9 @@ signal rebuilt
 	set(value):
 		up_mode = value
 		queue_rebuild()
-## Swap which side of the path the blocks' +Z side faces.
+## Mirror the blocks across the path: their +Z side faces the path's left instead
+## of its right. Off, a block is only rotated, so it looks exactly as authored
+## (X along the path, Y up, +Z to the right of travel).
 @export var flip_side := false:
 	set(value):
 		flip_side = value
@@ -86,15 +92,51 @@ signal rebuilt
 
 @export_group("")
 
-## What to place along the path (edited in the BUILDING BLOCK SEQUENCE section).
-@export var sequence: PathSequence:
+## The path's sections, laid end to end from the start (edited in the BUILDING
+## BLOCKS section of the Inspector). Each has its own start block, repeating
+## pattern and end block, fitted to its own length.
+@export var sections: Array[PathSection] = []:
 	set(value):
-		if sequence and sequence.changed.is_connected(queue_rebuild):
-			sequence.changed.disconnect(queue_rebuild)
-		sequence = value
-		if sequence:
-			sequence.changed.connect(queue_rebuild)
+		for sec in sections:
+			if sec and sec.changed.is_connected(queue_rebuild):
+				sec.changed.disconnect(queue_rebuild)
+		sections = value
+		for sec in sections:
+			if sec and not sec.changed.is_connected(queue_rebuild):
+				sec.changed.connect(queue_rebuild)
 		update_configuration_warnings()
+		queue_rebuild()
+
+## Scenes saved before sections existed stored one `sequence`; loading it makes it
+## the only section. Never saved again (the getter returns null).
+@export_storage var sequence: PathSection:
+	set(value):
+		if value != null and sections.is_empty():
+			sections = [value]
+	get:
+		return null
+
+## Modules placed at specific path distances, across all sections. PathMarker
+## children of the Path3D add to these. (Edited in the BUILDING BLOCKS section.)
+@export var markers: Array[PathMarkerEntry] = []:
+	set(value):
+		for e in markers:
+			if e and e.changed.is_connected(queue_rebuild):
+				e.changed.disconnect(queue_rebuild)
+		markers = value
+		for e in markers:
+			if e and not e.changed.is_connected(queue_rebuild):
+				e.changed.connect(queue_rebuild)
+		queue_rebuild()
+
+enum MarkerSnap { EXACT, NEAREST_JOINT }
+
+## EXACT: a marker sits exactly at its distance and the blocks either side are
+## fitted around it. NEAREST_JOINT: the marker replaces the closest block, in
+## that block's slot.
+@export var marker_snap := MarkerSnap.EXACT:
+	set(value):
+		marker_snap = value
 		queue_rebuild()
 
 @export_tool_button("Rebuild", "Reload") var rebuild_action = rebuild
@@ -192,8 +234,8 @@ func _get_configuration_warnings() -> PackedStringArray:
 		out.append("The Path3D has no curve.")
 	elif get_parent() == p and not p.global_transform.basis.get_scale().is_equal_approx(Vector3.ONE):
 		out.append("The parent Path3D is scaled, and the blocks inherit its scale. Keep the path's scale at 1, or move this node out of the path.")
-	if sequence == null:
-		out.append("No building blocks: use Create building blocks in the Inspector.")
+	if sections.is_empty():
+		out.append("No building blocks: use Add section in the Inspector.")
 	return out
 
 
@@ -259,12 +301,6 @@ func rebuild() -> void:
 	_mod_index = {}
 	_warnings = []
 	var items := _layout(length)
-	if sequence and sequence.end and (sequence.repeat_pattern != false or sequence.mode == PathSequence.Mode.RANDOM):
-		for k in range(maxi(items.size() - sequence.end_count, 0), items.size()):
-			items[k]["no_px"] = true # the last block's px already moved the end
-	if sequence and sequence.start:
-		for k in range(0, mini(sequence.start_count, items.size())):
-			items[k]["no_px"] = true # the first block's px already moved the start
 	_last_items = items
 	if items.is_empty():
 		summary = "Nothing to place.\n" + "\n".join(_warnings)
@@ -372,23 +408,60 @@ func measure_length(pm: PathModule) -> float:
 
 
 ## Returns the placed modules, in path order: [{mod, s0, s1}], where `mod`
-## indexes `_mods` and s0/s1 are the module's joints (path distances).
+## indexes `_mods` and s0/s1 are the module's joints (path distances). The
+## sections are laid end to end; each is fitted to its own stretch of the path,
+## so the seam between two sections meets exactly like any other joint.
 func _layout(length: float) -> Array:
-	if sequence == null:
+	var secs: Array[PathSection] = []
+	for sec in sections:
+		if sec != null:
+			secs.append(sec)
+	if secs.is_empty():
 		_warnings.append("No building blocks set.")
 		return []
 
-	var seq := sequence
+	var path_a := start_offset
+	var path_b := length + end_offset # end_offset < 0 stops the blocks short of the path end
+	var fixed_total := 0.0
+	var open := 0
+	for sec in secs:
+		if sec.length > 0.0:
+			fixed_total += sec.length
+		else:
+			open += 1
+	var rest := path_b - path_a - fixed_total
+	if rest < -0.001:
+		_warnings.append("The sections are %.1f m longer than the path; the last ones are cut short." % -rest)
+	elif open == 0 and rest > 0.001:
+		_warnings.append("The sections end %.1f m before the path end. Give the last section length 0 to fill the rest." % rest)
+	var share := maxf(rest, 0.0) / float(open) if open > 0 else 0.0
+
+	var markers := _all_markers()
+	var items: Array = []
+	var pos := path_a
+	for i in secs.size():
+		var sec := secs[i]
+		var a := pos
+		var b := minf(pos + (sec.length if sec.length > 0.0 else share), path_b)
+		pos = b
+		if b - a <= 0.001:
+			_warnings.append("Section %d has no room." % (i + 1))
+			continue
+		var in_range := markers.filter(func(m): return m.distance >= a and m.distance < b or (i == secs.size() - 1 and m.distance == b))
+		items.append_array(_layout_section(sec, a, b, in_range))
+	return items
+
+
+## One section's modules between a and b.
+func _layout_section(seq: PathSection, a: float, b: float, markers: Array) -> Array:
 	var gen := _Gen.new(seq, self)
 	# Repeat off: the block sequence is placed once and the last block simply follows it.
-	var repeating: bool = seq.repeat_pattern != false or seq.mode == PathSequence.Mode.RANDOM
-	var a := start_offset
-	var b := length + end_offset # end_offset < 0 stops the blocks short of the path end
+	var repeating: bool = seq.repeat_pattern != false or seq.mode == PathSection.Mode.RANDOM
 	var lead: Array = []
 	var trail: Array = []
 	var fixed: Array = []
 	if seq.start and _module(seq.start) >= 0:
-		a += _mods[_module(seq.start)].px # the first block's px moves where the sequence starts
+		a += _mods[_module(seq.start)].px # the first block's px moves where the section starts
 		for _i in seq.start_count:
 			lead.append(_module(seq.start))
 	if seq.end and _module(seq.end) >= 0:
@@ -397,7 +470,7 @@ func _layout(length: float) -> Array:
 		if repeating:
 			b += _mods[e].px # the last block's px moves where it (and so the pattern) ends
 		if seq.anchor_end and repeating:
-			# The last blocks sit unstretched against the path end.
+			# The last blocks sit unstretched against the section end.
 			var pos := b
 			for _i in seq.end_count:
 				fixed.push_front({"mod": e, "s0": pos - e_len, "s1": pos})
@@ -407,37 +480,45 @@ func _layout(length: float) -> Array:
 			for _i in seq.end_count:
 				trail.append(e)
 
-	var markers := _all_markers()
-	if seq.marker_snap == PathSequence.MarkerSnap.NEAREST_JOINT or markers.is_empty():
-		var simple := _fill(a, b, lead, trail, gen)
-		if not markers.is_empty():
-			_replace_nearest(simple, markers)
-		return simple + fixed
-
-	# EXACT markers split the path into segments, each fitted on its own; the
-	# generator carries on across them, so the rhythm resumes after a marker.
 	var items: Array = []
-	var seg_a := a
-	var seg_lead := lead
-	for mk in markers:
-		var m_len: float = _mods[mk.mod].length
-		var m0: float = mk.distance - m_len * 0.5
-		var m1: float = m0 + m_len
-		if m0 < seg_a or m1 > b:
-			_warnings.append("Marker %s at %.1f m overlaps the start, the end or another marker; skipped." % [_mods[mk.mod].name, mk.distance])
-			continue
-		items.append_array(_fill(seg_a, m0, seg_lead, [], gen))
-		items.append({"mod": mk.mod, "s0": m0, "s1": m1})
-		seg_a = m1
-		seg_lead = []
-	items.append_array(_fill(seg_a, b, seg_lead, trail, gen))
-	return items + fixed
+	if marker_snap == MarkerSnap.NEAREST_JOINT or markers.is_empty():
+		items = _fill(seq, a, b, lead, trail, gen)
+		if not markers.is_empty():
+			_replace_nearest(items, markers)
+		items = items + fixed
+	else:
+		# EXACT markers split the section into segments, each fitted on its own; the
+		# generator carries on across them, so the rhythm resumes after a marker.
+		var seg_a := a
+		var seg_lead := lead
+		for mk in markers:
+			var m_len: float = _mods[mk.mod].length
+			var m0: float = mk.distance - m_len * 0.5
+			var m1: float = m0 + m_len
+			if m0 < seg_a or m1 > b:
+				_warnings.append("Marker %s at %.1f m overlaps the start, the end or another marker; skipped." % [_mods[mk.mod].name, mk.distance])
+				continue
+			items.append_array(_fill(seq, seg_a, m0, seg_lead, [], gen))
+			items.append({"mod": mk.mod, "s0": m0, "s1": m1})
+			seg_a = m1
+			seg_lead = []
+		items.append_array(_fill(seq, seg_a, b, seg_lead, trail, gen))
+		items = items + fixed
+
+	# The first and last block's px already moved the section's start and end.
+	if seq.end and repeating:
+		for k in range(maxi(items.size() - seq.end_count, 0), items.size()):
+			items[k]["no_px"] = true
+	if seq.start:
+		for k in range(0, mini(seq.start_count, items.size())):
+			items[k]["no_px"] = true
+	return items
 
 
 ## Fills [a, b] with `lead` modules, then middle modules from `gen`, then
 ## `trail` modules, made to fit by the sequence's fit mode. Advances `gen` by
 ## the middle modules used.
-func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
+func _fill(seq: PathSection, a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 	var span := b - a
 	if span <= 0.001:
 		if not (lead.is_empty() and trail.is_empty()):
@@ -447,11 +528,11 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 	for m in lead + trail:
 		fixed_len += _mods[m].length
 
-	var fit := sequence.fit
+	var fit := seq.fit
 	var mids: Array = []
-	var repeating: bool = sequence.repeat_pattern != false or sequence.mode == PathSequence.Mode.RANDOM
+	var repeating: bool = seq.repeat_pattern != false or seq.mode == PathSection.Mode.RANDOM
 	if not repeating:
-		fit = PathSequence.Fit.NONE # a single pass is never stretched
+		fit = PathSection.Fit.NONE # a single pass is never stretched
 		if not gen.is_empty() and not gen.placed_once:
 			gen.placed_once = true
 			var used := fixed_len
@@ -474,7 +555,7 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 				break
 			mids.append(m)
 			total += m_len
-		if fit == PathSequence.Fit.FINISH_CYCLE and sequence.mode == PathSequence.Mode.PATTERN:
+		if fit == PathSection.Fit.FINISH_CYCLE and seq.mode == PathSection.Mode.PATTERN:
 			var cycle := gen.cycle_length(_mods)
 			var cycles := roundi((span - fixed_len) / cycle) if cycle > 0.0 else 0
 			if cycles == 0 and fixed_len == 0.0:
@@ -483,7 +564,7 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 			probe = gen.copy()
 			for _i in cycles * gen.cycle_count():
 				mids.append(probe.next())
-		elif fit == PathSequence.Fit.STRETCH and overflow >= 0:
+		elif fit == PathSection.Fit.STRETCH and overflow >= 0:
 			var over_len: float = _mods[overflow].length
 			var with_next: float = total + over_len
 			if total <= 0.0 or absf(span / with_next - 1.0) < absf(span / total - 1.0):
@@ -495,7 +576,7 @@ func _fill(a: float, b: float, lead: Array, trail: Array, gen: _Gen) -> Array:
 	if order.is_empty():
 		return []
 	var items := []
-	if fit == PathSequence.Fit.NONE:
+	if fit == PathSection.Fit.NONE:
 		var pos := a
 		for m in lead + mids:
 			var l: float = _mods[m].length
@@ -539,11 +620,11 @@ func _replace_nearest(items: Array, markers: Array) -> void:
 			items[best].mod = mk.mod
 
 
-## Markers from the sequence and from PathMarker children, sorted by distance:
+## Markers from the stitcher and from PathMarker children, sorted by distance:
 ## [{mod, distance}].
 func _all_markers() -> Array:
 	var out := []
-	for e in sequence.markers:
+	for e in markers:
 		if e and e.module and _module(e.module) >= 0:
 			out.append({"mod": _module(e.module), "distance": e.distance})
 	for m in _path_markers():
@@ -928,7 +1009,7 @@ func _build_instances(out: Node3D, rows: Dictionary) -> int:
 				continue
 			var mesh := ArrayMesh.new()
 			var arrays: Array = g.arrays
-			if not flip_side: # see _reverse_winding: the unflipped mapping is the mirror
+			if flip_side: # see _reverse_winding: a flipped block is mirrored
 				arrays = arrays.duplicate()
 				arrays[Mesh.ARRAY_INDEX] = _reverse_winding(g.arrays[Mesh.ARRAY_INDEX])
 			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -967,7 +1048,7 @@ func _frame(curve: Curve3D, length: float, xf: Transform3D, s: float) -> Array:
 	else:
 		l = Vector3.UP.cross(Vector3(tng.x, 0.0, tng.z).normalized())
 		u = Vector3.UP
-	if flip_side:
+	if not flip_side: # l is the left; +Z maps to the right (a plain rotation)
 		l = -l
 	return [xf * p, (xf.basis * l).normalized(), (xf.basis * u).normalized()]
 
@@ -1008,7 +1089,7 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 			out_t[i * 4 + 1] = t.y
 			out_t[i * 4 + 2] = t.z
 	arr[Mesh.ARRAY_VERTEX] = out_v
-	if not flip_side and src[Mesh.ARRAY_INDEX] != null:
+	if flip_side and src[Mesh.ARRAY_INDEX] != null:
 		arr[Mesh.ARRAY_INDEX] = _reverse_winding(src[Mesh.ARRAY_INDEX]) # a mirror turns triangles inside out
 	if normals != null:
 		arr[Mesh.ARRAY_NORMAL] = out_n
@@ -1017,12 +1098,11 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 	return arr
 
 
-## The triangle indices with each triangle's winding reversed. Block +Z maps to
-## the path's left, but in Godot's right-handed space +Z is to the right of +X
-## (forward) with +Y up, so the default mapping (forward, up, left) is a mirror
-## and would turn every triangle inside out. Flip Side negates left, which
-## makes the mapping a plain rotation again, so it is the one case that keeps
-## the source winding. (Double-sided materials hide a wrong winding.)
+## The triangle indices with each triangle's winding reversed. By default block +Z
+## maps to the path's right, so (forward, up, right) is a plain rotation and the
+## source winding is kept. Flip Side maps +Z to the left, which mirrors the block
+## and would turn every triangle inside out, so its winding is reversed.
+## (Double-sided materials hide a wrong winding.)
 func _reverse_winding(idx: PackedInt32Array) -> PackedInt32Array:
 	var out := idx.duplicate()
 	for i in range(0, idx.size() - 2, 3):
@@ -1113,13 +1193,13 @@ class _Gen:
 	var run := 0
 	var placed_once := false # Repeat off: the single pass has been placed
 
-	func _init(seq: PathSequence = null, host = null) -> void:
+	func _init(seq: PathSection = null, host = null) -> void:
 		if seq == null:
 			return
 		mode = seq.mode
 		max_repeat = seq.max_repeat
 		rng.seed = seq.random_seed
-		if mode == PathSequence.Mode.PATTERN:
+		if mode == PathSection.Mode.PATTERN:
 			for e in seq.pattern:
 				if e and e.module and host._module(e.module) >= 0:
 					for _i in e.count:
@@ -1146,11 +1226,11 @@ class _Gen:
 		return g
 
 	func is_empty() -> bool:
-		return flat.is_empty() if mode == PathSequence.Mode.PATTERN else choices.is_empty()
+		return flat.is_empty() if mode == PathSection.Mode.PATTERN else choices.is_empty()
 
 	func next() -> int:
 		var m: int
-		if mode == PathSequence.Mode.PATTERN:
+		if mode == PathSection.Mode.PATTERN:
 			m = flat[idx % flat.size()]
 			idx += 1
 		else:

@@ -16,7 +16,7 @@ PathStitcher repeats modular meshes along a Curve3D, deforming them so neighbour
 addons/path_stitcher/
   path_stitcher.gd          the PathStitcher node
   path_ground_draper.gd     PathGroundDraper (drape a path onto the ground)
-  sequence/                 PathModule, PathPatternEntry, PathSequence, PathMarkerEntry, PathMarker
+  sequence/                 PathModule, PathPatternEntry, PathSection, PathMarkerEntry, PathMarker
   movement/                 PathAxesFollower (the optional movement axes)
   plugin.gd, inspector_plugin.gd, building_blocks_editor.gd, bend_property.gd, scene_picker.gd
                             the Inspector editor plugin
@@ -30,13 +30,13 @@ Positions relative to a path use path coordinates, named to match the source mod
 | --- | --- | --- |
 | `px` | Distance along the path (s); Godot's `PathFollow3D.progress` | Module X |
 | `py` | Height above the path point, along world up | Module Y |
-| `pz` | Horizontal sideways offset, + = left of the direction of travel | Module Z |
+| `pz` | Horizontal sideways offset, + = right of the direction of travel | Module Z |
 
 A path's direction is its point order: px = 0 at the first Curve3D point and increases towards the last, so +px is forward. On SpiralPath, forward is uphill.
 
 Equivalent conventions elsewhere: Frenet / curvilinear coordinates (s, d) in robotics, station and offset (chainage) in road and rail design.
 
-Conversion to world space, with P(s) the curve point, L(s) the horizontal left vector (Û × flattened tangent) and Û world up:
+Conversion to world space, with P(s) the curve point, L(s) the horizontal right vector (flattened tangent × Û; the left with Flip Side) and Û world up:
 
 ```latex
 W = P(p_x) + p_z\,L(p_x) + p_y\,\hat{U}
@@ -101,17 +101,18 @@ The wedge and shear both vary along the spiral, so they are computed for each mo
 
 ## Current implementation
 
-`PathStitcher` (`res://addons/path_stitcher/path_stitcher.gd`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. Each stitcher is a child of the path it follows. What it places comes from a `PathSequence` (see "Module sequences"); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
+`PathStitcher` (`res://addons/path_stitcher/path_stitcher.gd`) stitches modules along one path: it lays them end to end and bends them through the curve so they meet seamlessly. It builds the whole tower, 550 modules, in about 1.1 s in the editor. Each stitcher is a child of the path it follows. What it places comes from `PathSection`s laid end to end (see "Module sequences"; a single `sequence` in an older scene loads as one section); the old single hidden source block mode is gone, and the tower and the road are each a one-block sequence.
 
 | Property | Type | Purpose |
 | --- | --- | --- |
 | `path_node` | NodePath (Path3D), default `..` | The curve to follow. The default is the parent, so a stitcher added under a Path3D needs nothing set and the field shows the parent path's name; an empty value is treated as the parent too |
-| `sequence` | PathSequence | The building blocks (edited in the BUILDING BLOCKS section) |
+| `sections` | Array of PathSection | The sections, laid end to end (edited in the BUILDING BLOCKS section) |
+| `markers`, `marker_snap` | Array of PathMarkerEntry, enum | Blocks at fixed distances across all sections |
 | `bend` | LINEAR (default) / FULL | How a block follows the path between its joints (see "Bend"). Shown as two toggle buttons, Linear | Full |
 | `start_offset` | float, 0.0 | Path distance of the first block's start joint |
 | `end_offset` | float, 0.0 | Path distance added to the end: negative stops the blocks before the end of the path, positive carries them on past it along the end tangent |
 | `up_mode` | WORLD / PATH | Vertical shear, or pitch and bank with the path |
-| `flip_side` | bool | Mirror blocks across the path line (pz becomes −pz): the +Z side faces right instead of left. Offsets mirror with it, and triangle winding is reversed so lighting stays correct. No visible change for a block that is symmetric about its centre line |
+| `flip_side` | bool | Mirror blocks across the path line (pz becomes −pz): the +Z side faces left instead of right (the default faces right). Offsets mirror with it, and triangle winding is reversed so lighting stays correct. No visible change for a block that is symmetric about its centre line |
 | `collision_prefix` | String, `Col-` | Collision only |
 | `visible_collision_prefix` | String, `ColVis-` | Visible and collision |
 | `generate_collision` | bool | Build StaticBody3D trimesh shapes |
@@ -198,9 +199,9 @@ Building blocks are Resources, stored inside the scene (or saved as a `.tres` an
 | | `length` (float, 0 = auto) | Joint-to-joint length along the path (px); 0 uses the mesh's X extent minus `overlap` at each end |
 | | `overlap` (float) | Built-in overlap at each end (Block1: 0.5 m, giving 5 m from a 6 m mesh) |
 | | `stretch_to_length` (bool) | Along px, with a set `length`: off = Place (the block keeps its size and is placed every `length`; a longer length leaves gaps), on = Stretch (the block's mesh is stretched along the path to fill `length`, measured against its natural length: mesh extent minus overlap). Has no effect while `length` is 0 (auto) |
-| | `offset_px`, `offset_py`, `offset_pz` (float) | Per-block offset, shown as one Offset row (px, py, pz). px slides the block along the path (following the curve, not a straight line), py raises or lowers it, pz shifts it sideways (+ = left of travel). For the First and Last block, px also moves where the sequence starts and ends (below) |
+| | `offset_px`, `offset_py`, `offset_pz` (float) | Per-block offset, shown as one Offset row (px, py, pz). px slides the block along the path (following the curve, not a straight line), py raises or lowers it, pz shifts it sideways (+ = right of travel). For the First and Last block, px also moves where the sequence starts and ends (below) |
 | `PathPatternEntry` | `module` (PathModule), `count` (int ≥ 1) | One row of the block sequence: `count` copies in a row, or the block's weight in random mode |
-| `PathSequence` | `start` (PathModule, optional), `start_count` (int ≥ 1) | First block, placed `start_count` times at the path start |
+| `PathSection` | `title` (String), `length` (float, m; 0 = share what the others leave), `start` (PathModule, optional), `start_count` (int ≥ 1) | First block, placed `start_count` times at the path start |
 | | `pattern` (Array of PathPatternEntry) | The block sequence, repeated to fill the path |
 | | `mode` (PATTERN / RANDOM) | Repeat in order, or draw at random using each row's count as its weight |
 | | `end` (PathModule, optional), `end_count` (int ≥ 1), `anchor_end` | Last block, placed `end_count` times at the path end |

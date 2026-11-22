@@ -1,6 +1,8 @@
 @tool
 extends VBoxContainer
-## The BUILDING BLOCK SEQUENCE section of a PathStitcher's Inspector, in a box:
+## The BUILDING BLOCKS section of a PathStitcher's Inspector: one box per section
+## (a name and length on top, then the section's own blocks, below), an
+## "Add section" button, and a MARKERS box. Each section's box holds:
 ##   a "First" row at the top, the reorderable block rows (drag the grip), an
 ##   always-present empty slot at the end of the list (pick or drop scene files
 ##   into it and it becomes a block, with a new empty slot below), a "Last" row
@@ -8,7 +10,7 @@ extends VBoxContainer
 ##   Randomize (with seed and max repeat). Every row has a multiplier: a repeat
 ##   count (a weight for the middle rows when Randomize is on) and an expander
 ##   for that block's length (px), overlap and offset (vert, horz).
-## A second box holds markers (a block at a path distance).
+## The MARKERS box holds blocks at fixed path distances, across all sections.
 ## Every edit is one undoable editor action.
 
 const ScenePicker := preload("res://addons/path_stitcher/scene_picker.gd")
@@ -25,7 +27,7 @@ const DISTANCE_WIDTH := 55
 
 var _stitcher: PathStitcher
 var _ur: EditorUndoRedoManager
-var _watched: PathSequence
+var _watched: Array[PathSection] = []
 var _expanded := {}
 var _hints := {}
 var _build_queued := false
@@ -43,7 +45,7 @@ func setup(stitcher: Object) -> void:
 func _exit_tree() -> void:
 	if _ur and _ur.version_changed.is_connected(_on_history_changed):
 		_ur.version_changed.disconnect(_on_history_changed)
-	_watch(null)
+	_watch([])
 
 
 ## A fixed size scaled for the editor's display scale.
@@ -61,43 +63,88 @@ func _build() -> void:
 		remove_child(c)
 		c.queue_free()
 	_hints.clear()
-	var seq := _stitcher.sequence
-	_watch(seq)
+	_watch(_stitcher.sections)
 
-	if seq == null:
+	if _stitcher.sections.is_empty():
 		var empty := VBoxContainer.new()
-		empty.add_child(_header("BUILDING BLOCK SEQUENCE"))
-		var create := Button.new()
-		create.text = "Create building blocks"
-		create.pressed.connect(_create_sequence)
-		empty.add_child(create)
+		empty.add_child(_header("BUILDING BLOCKS"))
+		empty.add_child(_add_section_button())
 		add_child(_boxed(empty))
 		return
-	add_child(_boxed(_sequence_box()))
+	for i in _stitcher.sections.size():
+		if _stitcher.sections[i] != null:
+			add_child(_boxed(_section_box(i)))
+	add_child(_add_section_button())
 	add_child(_boxed(_markers_section()))
 
 
-func _sequence_box() -> Control:
-	var seq := _stitcher.sequence
-	var random := seq.mode == PathSequence.Mode.RANDOM
+func _add_section_button() -> Button:
+	var add := Button.new()
+	add.text = "Add section"
+	add.icon = _icon("Add")
+	add.tooltip_text = "Add a section: a stretch of the path with its own start block, repeating pattern and end block. Sections are laid end to end."
+	add.pressed.connect(_add_section)
+	return add
+
+
+func _section_box(si: int) -> Control:
+	var seq: PathSection = _stitcher.sections[si]
+	var random := seq.mode == PathSection.Mode.RANDOM
 	var box := VBoxContainer.new()
 
+	# Header: name, length, and the section's own buttons.
 	var head := HBoxContainer.new()
-	var title := _header("BUILDING BLOCK SEQUENCE")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
+	var name_edit := LineEdit.new()
+	name_edit.text = seq.title
+	name_edit.placeholder_text = "Section %d" % (si + 1)
+	name_edit.tooltip_text = "A name for this section (optional)."
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_edit.size_flags_stretch_ratio = 1.0
+	name_edit.custom_minimum_size.x = _px(50)
+	name_edit.text_submitted.connect(_on_title.bind(seq))
+	name_edit.focus_exited.connect(func(): _on_title(name_edit.text, seq))
+	head.add_child(name_edit)
+	var len_spin := _spin(seq.length, 0.0, 100000.0, 0.1, " m")
+	len_spin.tooltip_text = "How far along the path this section runs. 0 = share whatever the other sections leave over."
+	len_spin.custom_minimum_size.x = _px(110)
+	len_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	len_spin.size_flags_stretch_ratio = 2.5
+	len_spin.value_changed.connect(_on_spin.bind(seq, &"length", "Set section length"))
+	head.add_child(len_spin)
+	head.add_child(_icon_button("MoveUp", "^", "Move this section earlier along the path", _move_section.bind(si, -1), si > 0))
+	head.add_child(_icon_button("MoveDown", "v", "Move this section later along the path", _move_section.bind(si, 1), si < _stitcher.sections.size() - 1))
+	head.add_child(_icon_button("Remove", "x", "Remove this section", _remove_section.bind(si), true))
+	box.add_child(head)
+
+	var rnd_row := HBoxContainer.new()
+	rnd_row.add_child(_spacer(HANDLE_WIDTH))
 	var rnd := CheckBox.new()
 	rnd.text = "Randomize"
 	rnd.tooltip_text = "Off: the blocks repeat in this order, each row repeated by its count.\nOn: blocks are drawn at random; each middle row's number is its weight."
 	rnd.button_pressed = random
-	rnd.toggled.connect(_on_randomize)
-	head.add_child(rnd)
-	box.add_child(head)
+	rnd.toggled.connect(_on_randomize.bind(seq))
+	rnd_row.add_child(rnd)
+	box.add_child(rnd_row)
 
-	box.add_child(_end_row("First", &"start", &"start_count"))
+	box.add_child(_end_row(seq, si, "First", &"start", &"start_count"))
+
+	# A label for the middle part, like First and Last have.
+	var mid := HBoxContainer.new()
+	var mid_label := _label("Random" if random else "Repeat")
+	mid_label.custom_minimum_size.x = _px(HANDLE_WIDTH)
+	mid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid_label.tooltip_text = ("The blocks between First and Last, drawn at random; each row's number is its weight."
+			if random else "The blocks between First and Last, repeated in this order to fill the section.")
+	mid_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	mid.add_child(mid_label)
+	var mid_rule := HSeparator.new()
+	mid_rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid_rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mid.add_child(mid_rule)
+	box.add_child(mid)
 	for i in seq.pattern.size():
-		box.add_child(_block_row(i, random))
-	box.add_child(_empty_slot_row(random))
+		box.add_child(_block_row(seq, si, i, random))
+	box.add_child(_empty_slot_row(seq, random))
 	if not random:
 		var rep_row := HBoxContainer.new()
 		rep_row.add_child(_spacer(HANDLE_WIDTH))
@@ -105,16 +152,16 @@ func _sequence_box() -> Control:
 		rep.text = "Repeat between First and Last"
 		rep.tooltip_text = "On: the blocks repeat to fill the space from the First block to the Last block.\nOff: they are placed once, each row's × being how many of that block are placed."
 		rep.button_pressed = seq.repeat_pattern != false
-		rep.toggled.connect(_on_repeat)
+		rep.toggled.connect(_on_repeat.bind(seq))
 		rep_row.add_child(rep)
 		box.add_child(rep_row)
-	box.add_child(_end_row("Last", &"end", &"end_count"))
+	box.add_child(_end_row(seq, si, "Last", &"end", &"end_count"))
 
 	var fit_row := HBoxContainer.new()
 	fit_row.add_child(_column_label("Fit"))
 	var fit := _option(FIT_NAMES, seq.fit)
-	fit.tooltip_text = "How the blocks are made to fill the path exactly.\nStretch: whole blocks, all stretched slightly.\nTruncate pattern: as many whole blocks as fit, then stretched.\nFinish cycle: whole cycles of the sequence only.\nNone: no stretching; a gap may remain."
-	fit.item_selected.connect(_on_fit)
+	fit.tooltip_text = "How the blocks are made to fill the section exactly.\nStretch: whole blocks, all stretched slightly.\nTruncate pattern: as many whole blocks as fit, then stretched.\nFinish cycle: whole cycles of the sequence only.\nNone: no stretching; a gap may remain."
+	fit.item_selected.connect(_on_fit.bind(seq))
 	fit_row.add_child(fit)
 	box.add_child(fit_row)
 
@@ -136,8 +183,7 @@ func _sequence_box() -> Control:
 ## The First / Last row: a label in the grip column, the scene picker, the
 ## multiplier, and the expander. The Last row also carries the anchor toggle on
 ## its own line underneath.
-func _end_row(title: String, prop: StringName, count_prop: StringName) -> Control:
-	var seq := _stitcher.sequence
+func _end_row(seq: PathSection, si: int, title: String, prop: StringName, count_prop: StringName) -> Control:
 	var pm: PathModule = seq.get(prop)
 	var first := prop == &"start"
 	var box := VBoxContainer.new()
@@ -145,12 +191,12 @@ func _end_row(title: String, prop: StringName, count_prop: StringName) -> Contro
 	box.add_child(row)
 
 	row.add_child(_column_label(title))
-	row.add_child(_picker(pm.scene if pm else null, _on_end_scene.bind(prop)))
+	row.add_child(_picker(pm.scene if pm else null, _on_end_scene.bind(prop, seq)))
 	row.add_child(_count_spin(seq.get(count_prop), "×",
 			"How many copies of the %s block sit at the %s of the path." % ["first" if first else "last", "start" if first else "end"],
 			seq, count_prop, "Set %s block count" % ("first" if first else "last")))
 	if pm:
-		row.add_child(_expander(String(prop)))
+		row.add_child(_expander("s%d_%s" % [si, prop]))
 	else:
 		row.add_child(_spacer(BUTTON_WIDTH))
 	if pm:
@@ -161,7 +207,7 @@ func _end_row(title: String, prop: StringName, count_prop: StringName) -> Contro
 			del.text = "x"
 		del.custom_minimum_size.x = _px(BUTTON_WIDTH)
 		del.tooltip_text = "Remove the %s block" % ("first" if first else "last")
-		del.pressed.connect(_clear_end.bind(prop))
+		del.pressed.connect(_clear_end.bind(prop, seq))
 		row.add_child(del)
 	else:
 		row.add_child(_spacer(BUTTON_WIDTH))
@@ -173,32 +219,31 @@ func _end_row(title: String, prop: StringName, count_prop: StringName) -> Contro
 		anchor.text = "Anchor Last block to end of path"
 		anchor.tooltip_text = "Place the Last block exactly at the end of the path, unstretched.\nOnly the blocks before it are fitted."
 		anchor.button_pressed = seq.anchor_end
-		anchor.toggled.connect(_on_anchor)
+		anchor.toggled.connect(_on_anchor.bind(seq))
 		anchor_row.add_child(anchor)
 		box.add_child(anchor_row)
-	if pm and _expanded.get(String(prop), false):
+	if pm and _expanded.get("s%d_%s" % [si, prop], false):
 		box.add_child(_detail(pm))
 	return box
 
 
-func _block_row(i: int, random: bool) -> Control:
-	var seq := _stitcher.sequence
+func _block_row(seq: PathSection, si: int, i: int, random: bool) -> Control:
 	var entry: PathPatternEntry = seq.pattern[i]
 	var v := VBoxContainer.new()
 	var row := HBoxContainer.new()
 	v.add_child(row)
 
 	var handle := _Handle.new()
-	handle.kind = "block"
+	handle.kind = "block%d" % si
 	handle.index = i
-	handle.on_drop = _move_block
+	handle.on_drop = _move_block.bind(seq)
 	handle.custom_minimum_size.x = _px(HANDLE_WIDTH)
 	row.add_child(handle)
 	row.add_child(_picker(entry.module.scene if entry.module else null, _on_entry_scene.bind(entry)))
 	row.add_child(_count_spin(entry.count, "wt " if random else "×",
 			"Weight: how often this block is picked." if random else "How many of this block in a row.",
 			entry, &"count", "Set block count"))
-	row.add_child(_expander("b%d" % i))
+	row.add_child(_expander("s%d_b%d" % [si, i]))
 	var del := Button.new()
 	del.flat = true
 	del.icon = _icon("Remove")
@@ -206,10 +251,10 @@ func _block_row(i: int, random: bool) -> Control:
 		del.text = "x"
 	del.custom_minimum_size.x = _px(BUTTON_WIDTH)
 	del.tooltip_text = "Remove this block"
-	del.pressed.connect(_remove_block.bind(i))
+	del.pressed.connect(_remove_block.bind(i, seq))
 	row.add_child(del)
 
-	if entry.module and _expanded.get("b%d" % i, false):
+	if entry.module and _expanded.get("s%d_b%d" % [si, i], false):
 		v.add_child(_detail(entry.module))
 	return v
 
@@ -217,13 +262,13 @@ func _block_row(i: int, random: bool) -> Control:
 ## The empty slot at the end of the block list. Choosing a scene in it (or
 ## dropping scene files on it) adds real block rows and a fresh empty slot
 ## appears below them.
-func _empty_slot_row(random: bool) -> Control:
+func _empty_slot_row(seq: PathSection, random: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.add_child(_spacer(HANDLE_WIDTH))
 	var slot := ScenePicker.new()
 	slot.accept_multiple = true
-	slot.scene_changed.connect(_on_slot_scene)
-	slot.scenes_dropped.connect(_add_blocks_from)
+	slot.scene_changed.connect(_on_slot_scene.bind(seq))
+	slot.scenes_dropped.connect(_add_blocks_from.bind(seq))
 	row.add_child(slot)
 	# A faded, disabled multiplier keeps the columns lined up with the rows above.
 	var count := _spin(1, 1.0, 1000.0, 1.0)
@@ -239,16 +284,18 @@ func _empty_slot_row(random: bool) -> Control:
 
 
 func _markers_section() -> Control:
-	var seq := _stitcher.sequence
 	var box := VBoxContainer.new()
-	box.add_child(_header("MARKERS"))
-	for i in seq.markers.size():
-		var entry: PathMarkerEntry = seq.markers[i]
+	var head := _header("MARKERS")
+	head.tooltip_text = "Place a specific block at a chosen spot on the path (a gate, a door, a bridge) instead of leaving it to the repeating pattern."
+	head.mouse_filter = Control.MOUSE_FILTER_STOP
+	box.add_child(head)
+	for i in _stitcher.markers.size():
+		var entry: PathMarkerEntry = _stitcher.markers[i]
 		var row := HBoxContainer.new()
 		row.add_child(_picker(entry.module.scene if entry.module else null, _on_entry_scene.bind(entry)))
 		row.add_child(_label("at"))
 		var dist := _spin(entry.distance, 0.0, 1000000.0, 0.1, " m")
-		dist.tooltip_text = "Path distance (px) where the block's centre lands."
+		dist.tooltip_text = "Path distance (m) where the block's centre lands."
 		dist.custom_minimum_size.x = _px(DISTANCE_WIDTH)
 		dist.size_flags_horizontal = Control.SIZE_SHRINK_END
 		dist.value_changed.connect(_on_spin.bind(entry, &"distance", "Set marker distance"))
@@ -268,6 +315,7 @@ func _markers_section() -> Control:
 	var add := Button.new()
 	add.text = "Add marker"
 	add.icon = _icon("Add")
+	add.tooltip_text = "Place a specific block at a chosen spot on the path (a gate, a door, a bridge) instead of leaving it to the repeating pattern."
 	add.pressed.connect(_add_marker)
 	buttons.add_child(add)
 	var here := Button.new()
@@ -280,8 +328,8 @@ func _markers_section() -> Control:
 
 	var snap_row := HBoxContainer.new()
 	snap_row.add_child(_column_label("Snap"))
-	var snap := _option(SNAP_NAMES, seq.marker_snap)
-	snap.tooltip_text = "Exact: the marker sits at its distance and the blocks around it are fitted.\nNearest joint: the marker replaces the closest block in the sequence."
+	var snap := _option(SNAP_NAMES, _stitcher.marker_snap)
+	snap.tooltip_text = "Exact: the marker sits at its distance and the blocks around it are fitted.\nNearest joint: the marker replaces the closest block in its section."
 	snap.item_selected.connect(_on_snap)
 	snap_row.add_child(snap)
 	box.add_child(snap_row)
@@ -462,6 +510,19 @@ func _picker(scene: PackedScene, on_change: Callable) -> Control:
 	return p
 
 
+func _icon_button(icon_name: String, fallback: String, tip: String, on_press: Callable, enabled: bool) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.icon = _icon(icon_name)
+	if b.icon == null:
+		b.text = fallback
+	b.custom_minimum_size.x = _px(BUTTON_WIDTH)
+	b.tooltip_text = tip
+	b.disabled = not enabled
+	b.pressed.connect(on_press)
+	return b
+
+
 func _expander(key: String) -> Button:
 	var b := Button.new()
 	b.flat = true
@@ -504,20 +565,46 @@ func _on_length_fit(index: int, pm: PathModule) -> void:
 
 
 
-func _create_sequence() -> void:
-	_apply(_stitcher, &"sequence", PathSequence.new(), "Create building blocks")
+func _add_section() -> void:
+	var arr := _typed_sections()
+	var sec := PathSection.new()
+	arr.append(sec)
+	_apply(_stitcher, &"sections", arr, "Add section")
 	_queue_build()
+
+
+func _remove_section(index: int) -> void:
+	var arr := _typed_sections()
+	arr.remove_at(index)
+	_expanded.clear()
+	_apply(_stitcher, &"sections", arr, "Remove section")
+	_queue_build()
+
+
+func _move_section(index: int, delta: int) -> void:
+	var to := index + delta
+	var arr := _typed_sections()
+	if to < 0 or to >= arr.size():
+		return
+	var sec: PathSection = arr.pop_at(index)
+	arr.insert(to, sec)
+	_expanded.clear()
+	_apply(_stitcher, &"sections", arr, "Move section")
+	_queue_build()
+
+
+func _on_title(text: String, seq: PathSection) -> void:
+	if text != seq.title:
+		_apply(seq, &"title", text, "Name section")
 
 
 ## The trash button on a First / Last row: empties that slot (the count is kept).
-func _clear_end(prop: StringName) -> void:
-	_apply(_stitcher.sequence, prop, null, "Clear %s block" % ("first" if prop == &"start" else "last"))
+func _clear_end(prop: StringName, seq: PathSection) -> void:
+	_apply(seq, prop, null, "Clear %s block" % ("first" if prop == &"start" else "last"))
 	_queue_build()
 
 
-
-func _on_end_scene(res: Resource, prop: StringName) -> void:
-	var seq := _stitcher.sequence
+func _on_end_scene(res: Resource, prop: StringName, seq: PathSection) -> void:
 	var pm: PathModule = seq.get(prop)
 	if res == null:
 		_apply(seq, prop, null, "Clear block")
@@ -542,76 +629,82 @@ func _on_entry_scene(res: Resource, entry: Object) -> void:
 
 
 ## A scene was chosen in the empty slot: it becomes a block row.
-func _on_slot_scene(scene: PackedScene) -> void:
+func _on_slot_scene(scene: PackedScene, seq: PathSection) -> void:
 	if scene:
-		_add_blocks_from([scene])
+		_add_blocks_from([scene], seq)
 
 
-func _on_repeat(on: bool) -> void:
-	_apply(_stitcher.sequence, &"repeat_pattern", on, "Toggle repeat")
+func _on_repeat(on: bool, seq: PathSection) -> void:
+	_apply(seq, &"repeat_pattern", on, "Toggle repeat")
 
 
 
-func _on_anchor(on: bool) -> void:
-	_apply(_stitcher.sequence, &"anchor_end", on, "Anchor Last block to end of path")
+func _on_anchor(on: bool, seq: PathSection) -> void:
+	_apply(seq, &"anchor_end", on, "Anchor Last block to end of path")
 
 
-func _on_randomize(on: bool) -> void:
-	_apply(_stitcher.sequence, &"mode", PathSequence.Mode.RANDOM if on else PathSequence.Mode.PATTERN, "Toggle randomize")
+func _on_randomize(on: bool, seq: PathSection) -> void:
+	_apply(seq, &"mode", PathSection.Mode.RANDOM if on else PathSection.Mode.PATTERN, "Toggle randomize")
 	_queue_build()
 
 
-func _on_fit(index: int) -> void:
-	_apply(_stitcher.sequence, &"fit", index, "Set fit")
+func _on_fit(index: int, seq: PathSection) -> void:
+	_apply(seq, &"fit", index, "Set fit")
 
 
 func _on_snap(index: int) -> void:
-	_apply(_stitcher.sequence, &"marker_snap", index, "Set marker snap")
+	_apply(_stitcher, &"marker_snap", index, "Set marker snap")
 
 
-func _typed_pattern() -> Array[PathPatternEntry]:
+func _typed_sections() -> Array[PathSection]:
+	var arr: Array[PathSection] = []
+	arr.assign(_stitcher.sections)
+	return arr
+
+
+func _typed_pattern(seq: PathSection) -> Array[PathPatternEntry]:
 	var arr: Array[PathPatternEntry] = []
-	arr.assign(_stitcher.sequence.pattern)
+	arr.assign(seq.pattern)
 	return arr
 
 
 func _typed_markers() -> Array[PathMarkerEntry]:
 	var arr: Array[PathMarkerEntry] = []
-	arr.assign(_stitcher.sequence.markers)
+	arr.assign(_stitcher.markers)
 	return arr
 
 
 ## Scenes chosen in or dropped on the empty slot: one new block row per scene,
 ## in one undo step.
-func _add_blocks_from(scenes: Array) -> void:
+func _add_blocks_from(scenes: Array, seq: PathSection) -> void:
 	if scenes.is_empty():
 		return
-	var arr := _typed_pattern()
+	var arr := _typed_pattern(seq)
 	for scene in scenes:
 		var entry := PathPatternEntry.new()
 		entry.module = PathModule.new()
 		entry.module.scene = scene
 		arr.append(entry)
-	_apply(_stitcher.sequence, &"pattern", arr, "Add blocks" if scenes.size() > 1 else "Add block")
+	_apply(seq, &"pattern", arr, "Add blocks" if scenes.size() > 1 else "Add block")
 	_queue_build()
 
 
-func _remove_block(index: int) -> void:
-	var arr := _typed_pattern()
+func _remove_block(index: int, seq: PathSection) -> void:
+	var arr := _typed_pattern(seq)
 	arr.remove_at(index)
 	_forget_block_expansion()
-	_apply(_stitcher.sequence, &"pattern", arr, "Remove block")
+	_apply(seq, &"pattern", arr, "Remove block")
 	_queue_build()
 
 
-func _move_block(from: int, to: int) -> void:
+func _move_block(from: int, to: int, seq: PathSection) -> void:
 	if from == to:
 		return
-	var arr := _typed_pattern()
+	var arr := _typed_pattern(seq)
 	var entry: PathPatternEntry = arr.pop_at(from)
 	arr.insert(to, entry)
 	_forget_block_expansion()
-	_apply(_stitcher.sequence, &"pattern", arr, "Reorder blocks")
+	_apply(seq, &"pattern", arr, "Reorder blocks")
 	_queue_build()
 
 
@@ -620,20 +713,20 @@ func _add_marker() -> void:
 	entry.module = PathModule.new()
 	var arr := _typed_markers()
 	arr.append(entry)
-	_apply(_stitcher.sequence, &"markers", arr, "Add marker")
+	_apply(_stitcher, &"markers", arr, "Add marker")
 	_queue_build()
 
 
 func _remove_marker(index: int) -> void:
 	var arr := _typed_markers()
 	arr.remove_at(index)
-	_apply(_stitcher.sequence, &"markers", arr, "Remove marker")
+	_apply(_stitcher, &"markers", arr, "Remove marker")
 	_queue_build()
 
 
 func _forget_block_expansion() -> void:
 	for k in _expanded.keys():
-		if String(k).begins_with("b"):
+		if "_b" in String(k):
 			_expanded.erase(k)
 
 
@@ -647,14 +740,15 @@ func _toggle_expanded(key: String) -> void:
 # ------------------------------------------------------------------------------
 
 
-func _watch(seq: PathSequence) -> void:
-	if _watched == seq:
-		return
-	if _watched and _watched.changed.is_connected(_on_sequence_changed):
-		_watched.changed.disconnect(_on_sequence_changed)
-	_watched = seq
-	if _watched:
-		_watched.changed.connect(_on_sequence_changed)
+func _watch(secs: Array) -> void:
+	for w in _watched:
+		if is_instance_valid(w) and w.changed.is_connected(_on_sequence_changed):
+			w.changed.disconnect(_on_sequence_changed)
+	_watched.clear()
+	for sec in secs:
+		if sec is PathSection:
+			sec.changed.connect(_on_sequence_changed)
+			_watched.append(sec)
 
 
 func _on_sequence_changed() -> void:

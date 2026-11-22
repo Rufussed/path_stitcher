@@ -11,9 +11,8 @@ config_version=5
 [application]
 
 config/name="PathStitcher Demo"
-run/main_scene="uid://bjfyvlry8lxhf"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_live_mcp/plugin.cfg", "res://addons/path_stitcher/plugin.cfg")
+enabled=PackedStringArray("res://addons/blendot/plugin.cfg", "res://addons/godot_live_mcp/plugin.cfg", "res://addons/path_stitcher/plugin.cfg")

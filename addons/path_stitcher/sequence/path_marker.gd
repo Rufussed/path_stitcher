@@ -5,6 +5,7 @@ extends Marker3D
 ## the editor it snaps onto the path as you move it, and any PathStitcher
 ## on that path puts the module's centre here.
 
+## The block placed at this marker's spot on the path.
 @export var module: PathModule:
 	set(value):
 		module = value

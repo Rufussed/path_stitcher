@@ -9,8 +9,8 @@ extends EditorProperty
 
 # [label, tooltip, Bend value, key in PathStitcher.relative_costs()] in display order.
 const CHOICES := [
-	["Linear", "Full instancing - GPU optimized. Straight blocks with matched ends, for architecture.", 1, "linear"],
-	["Full", "Full bend - follows the curve, for organic and sculpted forms.", 0, "full"],
+	["Linear", "GPU instancing: each block is distorted to match its two end frames. Seams meet exactly. Cheapest.", 1, "linear"],
+	["Full", "Fits every mesh vertex to the curve, so blocks can bend. GPU instancing cannot be used, so it is more expensive. More mesh vertices give smoother curve matching.", 0, "full"],
 ]
 const COST_TIP := "Draw calls + triangles / 10,000 for this path as laid out now, as if everything were in view,\nshown as a percentage of the more expensive mode. Lower is lighter. For comparing modes, not a frame time."
 

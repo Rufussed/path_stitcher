@@ -6,8 +6,9 @@ extends Path3D
 ## the curve is rebuilt; a PathStitcher on this path follows it live. Optional:
 ## any Path3D works with a PathStitcher.
 ##
-## The path runs counter-clockwise seen from above, so the outside of the turn
-## is the path's left (+Z of a block). Each turn climbs `rise_per_turn`; set it
+## The path climbs anticlockwise by default seen from above, like classic Tower
+## of Babel pictures, so the outside of the turn is the path's right, which is where
+## a block's +Z side faces (see PathStitcher's Flip Side). Each turn climbs `rise_per_turn`; set it
 ## to your block height so every turn rests on the one below.
 
 @export_group("Spiral")
@@ -40,6 +41,14 @@ extends Path3D
 @export_range(6, 96, 1, "or_greater") var points_per_turn := 24:
 	set(v):
 		points_per_turn = maxi(v, 6)
+		_queue_build()
+
+## Which way the path winds, seen from above. Anticlockwise puts the outside of
+## the turn on the path's right (where block +Z faces); with Clockwise turn on the
+## PathStitcher's Flip Side to keep blocks facing outwards.
+@export_enum("Anticlockwise", "Clockwise") var direction := 0:
+	set(v):
+		direction = v
 		_queue_build()
 
 @export_group("Snapping")
@@ -106,11 +115,12 @@ func build() -> void:
 	step = total / float(count) # land exactly on the last angle
 	var dr := (end_radius - start_radius) / total
 	var dh := rise_per_turn / TAU
+	var side := 1.0 if direction == 1 else -1.0 # sign of Z: -Z is anticlockwise from above
 	for i in count + 1:
 		var t := step * i
 		var r := start_radius + dr * t
-		var p := Vector3(r * cos(t), dh * t, r * sin(t))
+		var p := Vector3(r * cos(t), dh * t, side * r * sin(t))
 		# Bezier handles from the exact derivative, so the curve is smooth.
-		var d := Vector3(dr * cos(t) - r * sin(t), dh, dr * sin(t) + r * cos(t)) * (step / 3.0)
+		var d := Vector3(dr * cos(t) - r * sin(t), dh, side * (dr * sin(t) + r * cos(t))) * (step / 3.0)
 		c.add_point(p, -d, d)
 	curve = c

@@ -4,7 +4,7 @@ Notes on what is needed before submitting PathStitcher as a Godot addon (Asset L
 
 ## Can an addon be a new node?
 
-Yes. `PathStitcher` has `class_name PathStitcher` and `extends Node3D`, so it already appears in the Add Node dialog. `PathSequence`, `PathModule`, `PathMarker`, `PathGroundDraper` and the other `class_name` scripts are available the same way. No `add_custom_type()` is needed.
+Yes. `PathStitcher` has `class_name PathStitcher` and `extends Node3D`, so it already appears in the Add Node dialog. `PathSection`, `PathModule`, `PathMarker`, `PathGroundDraper` and the other `class_name` scripts are available the same way. No `add_custom_type()` is needed.
 
 ## Already good
 

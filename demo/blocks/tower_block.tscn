@@ -3,10 +3,13 @@
 [ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://demo/materials/floor.tres" id="1_7g87r"]
 [ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://demo/materials/stone.tres" id="2_5jqid"]
 [ext_resource type="ArrayMesh" uid="uid://cfn3e4fkufiq2" path="res://demo/meshes/arcade_arch.res" id="3_3yl86"]
-[ext_resource type="ArrayMesh" uid="uid://bbprdbhrv3tdu" path="res://demo/meshes/window_facade.res" id="4_6s335"]
+[ext_resource type="ArrayMesh" uid="uid://b12272wnh8h43" path="res://blendot_meshes/ColVis-ArchMid_133c1d19e3be.res" id="3_6s335"]
+[ext_resource type="ArrayMesh" uid="uid://drdaxecbjav4m" path="res://blendot_meshes/ColVis-ArchOuter_8634c421776c.res" id="4_3yl86"]
+[ext_resource type="ArrayMesh" uid="uid://cibgydwnqcban" path="res://blendot_meshes/ColVis-Core_078d556db65b.res" id="5_6s335"]
+[ext_resource type="ArrayMesh" uid="uid://1dncue1oggp1" path="res://blendot_meshes/ColVis-Facade_b074f3107e08.res" id="6_w1kas"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_w1kas"]
-size = Vector3(5, 0.5, 11)
+size = Vector3(5, 0.5, 16)
 subdivide_width = 5
 subdivide_depth = 10
 
@@ -20,17 +23,13 @@ size = Vector3(1, 8, 1)
 [sub_resource type="BoxMesh" id="BoxMesh_0wcpg"]
 size = Vector3(1, 8, 1)
 
-[sub_resource type="BoxMesh" id="BoxMesh_1l1d2"]
-size = Vector3(5, 8, 10)
-subdivide_width = 5
-subdivide_depth = 9
-
 [node name="TowerBlock" type="Node3D" unique_id=452288178]
 
 [node name="ColVis-Floor" type="MeshInstance3D" parent="." unique_id=1173769464]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.244053, -2.2662659)
 material_override = ExtResource("1_7g87r")
 mesh = SubResource("BoxMesh_w1kas")
+metadata/blendot_edit_id = "5ee30daa8bca"
 
 [node name="ColVis-InnerWall" type="MeshInstance3D" parent="." unique_id=712468908]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -5.25)
@@ -49,11 +48,13 @@ mesh = SubResource("BoxMesh_0wcpg")
 
 [node name="ColVis-ArchMid" type="MeshInstance3D" parent="." unique_id=1713513083]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0)
-mesh = ExtResource("3_3yl86")
+mesh = ExtResource("3_6s335")
+metadata/blendot_edit_id = "133c1d19e3be"
 
 [node name="ColVis-ArchOuter" type="MeshInstance3D" parent="." unique_id=49837849]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 5)
-mesh = ExtResource("3_3yl86")
+mesh = ExtResource("4_3yl86")
+metadata/blendot_edit_id = "8634c421776c"
 
 [node name="ColVis-CrossArchOuter" type="MeshInstance3D" parent="." unique_id=446202062]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -2, 0, 2.5)
@@ -66,7 +67,9 @@ mesh = ExtResource("3_3yl86")
 [node name="ColVis-Core" type="MeshInstance3D" parent="." unique_id=558965280]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, -0.5)
 material_override = ExtResource("2_5jqid")
-mesh = SubResource("BoxMesh_1l1d2")
+mesh = ExtResource("5_6s335")
+metadata/blendot_edit_id = "078d556db65b"
 
 [node name="ColVis-Facade" type="MeshInstance3D" parent="." unique_id=1457292693]
-mesh = ExtResource("4_6s335")
+mesh = ExtResource("6_w1kas")
+metadata/blendot_edit_id = "b074f3107e08"

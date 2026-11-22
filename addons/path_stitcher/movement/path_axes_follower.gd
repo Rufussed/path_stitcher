@@ -22,7 +22,7 @@ var right := Vector3.RIGHT
 var up := Vector3.UP
 var path: Path3D
 ## Position in path coordinates: px along the path, py height above the
-## path point, pz sideways offset (+ = left of travel). See the spec.
+## path point, pz sideways offset (+ = right of travel). See the spec.
 var path_coords := Vector3.ZERO
 var distance := INF
 var has_path := false
