@@ -15,8 +15,6 @@ signal path_changed(path: Path3D)
 @export var max_distance := 20.0
 ## A second path this close to the player makes the choice ambiguous (free roaming).
 @export var ambiguity_distance := 10.0
-## Take switch_margin, blend_distance and max_distance from GameParams.
-@export var use_game_params := true
 
 var forward := Vector3.FORWARD
 var forward_flat := Vector3.FORWARD
@@ -31,12 +29,6 @@ var has_path := false
 
 
 func _physics_process(_delta: float) -> void:
-	if use_game_params:
-		var p := GameParams.get_active()
-		switch_margin = p.switch_margin
-		blend_distance = p.blend_distance
-		max_distance = p.max_path_distance
-		ambiguity_distance = p.path_ambiguity_distance
 	var owner_3d := get_parent() as Node3D
 	if owner_3d:
 		update_axes(owner_3d.global_position)

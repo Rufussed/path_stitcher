@@ -4,7 +4,7 @@ Distribute modular "building blocks" along a path with seamless beauty. Envelope
 
 Use it for street and tower architecture, roads, walls, fences, bridges, tracks, railings, etc.
 
-<!-- TODO: add a screenshot or GIF here (docs/images/hero.gif) -->
+![A spiral tower built by PathStitcher from two repeating blocks](docs/images/tower_demo.png)
 
 ## Why PathStitcher
 
@@ -54,7 +54,14 @@ Output is generated under an unowned `_Generated` child. It is rebuilt on load a
 
 ## Demo
 
-`demo/tower_demo.tscn` in this repository builds a small Tower of Babel: a three-turn spiral that tightens from 30 m to 12 m radius while rising 8 m per turn, so every block is wedged and sheared differently. It uses two simple blocks (`demo/blocks/`): a solid base block for the first 12 placements and an arched platform block repeated after that. The demo is not included in the addon zip.
+This repository is a small Godot project. Open `project.godot` and run it, or open `demo/tower_demo.tscn`, to see a Tower of Babel built by one `PathStitcher` on one spiral `Path3D`. The spiral makes three and a half turns, tightening from 32 m to 14 m radius while rising 16 m per turn, so every block is wedged and sheared differently.
+
+The building blocks (in `demo/blocks/`) are each 5 m joint to joint, with no overlap:
+
+- **First block:** `base_block`, a solid 16 m block, placed 12 times to form the base (and once more as the last block).
+- **Block sequence:** `tower_block`, repeated. Its lower storey is an open arcade (pillars with arches running both along and across the path), and its upper storey is a solid wall with a round-headed window. Each turn of the spiral stands on top of the one below.
+
+The demo is not included in the addon zip.
 
 ## Authoring blocks
 
@@ -133,7 +140,7 @@ Offsets use path coordinates: `px` is distance along the path (forward is the di
 
 ## Contributing
 
-The repository also contains a small test game ("SkateOrDie") used to exercise the addon. It is not part of the addon and is left out of release zips. See `docs/PathStitcher_Spec.md` for the full design notes.
+The repository root is the demo project; the addon itself is everything under `addons/path_stitcher/`. See `docs/PathStitcher_Spec.md` for the full design notes.
 
 ## Licence
 
