@@ -21,11 +21,16 @@ Yes. `PathStitcher` has `class_name PathStitcher` and `extends Node3D`, so it al
 - **Demo project**: the repo root is now a small Godot project with `demo/tower_demo.tscn` (a simplified Tower of Babel); SkateOrDie moved to its own repo.
 - **Clean-project fixes**: the addon referenced SkateOrDie's `GameParams` (in `path_axes_follower.gd`); removed. Blocks made of PrimitiveMeshes failed; fixed. Blocks with single-sided materials rendered inside out (winding was reversed only with Flip Side, the wrong way round); fixed.
 
+- **Clean-project test** (Godot 4.7.2): `git archive` of HEAD extracted into an empty project, plus a throwaway editor plugin that ran 33 checks, all passing: plugin enables, disables and re-enables; all eight classes register; Full and Linear builds work with and without Flip Side (triangle winding checked against a native BoxMesh); `ColVis-` collision is generated; a block with no material still builds (CPU fallback); the built output is not saved in the `.tscn`, and the scene rebuilds on open; the BUILDING BLOCKS inspector section appears; undo and redo of a property work. The addon alone opens and quits with no editor errors.
+
 ## Still to do
 
-1. **Test in a clean project.** Copy only `addons/path_stitcher` into a new project, enable and disable the plugin, and check for editor errors.
-2. **Changelog.** Add `CHANGELOG.md` with the 1.0.0 entry and the tested Godot version (4.7.2).
-3. **Fresh repo for the release (optional).** Old commits still hold the 4096 px textures (about 35 MB in history).
+1. **Changelog.** Add `CHANGELOG.md` with the 1.0.0 entry and the tested Godot version (4.7.2).
+2. **Fresh repo for the release (optional).** Old commits still hold the 4096 px textures (about 35 MB in history).
+
+## Known limitations
+
+- Linear mode only GPU-instances blocks whose materials are plain opaque `StandardMaterial3D`s. A mesh with no material, or any other material, takes the CPU-merged path: correct, just slower. (A material-less mesh could be treated as a default `StandardMaterial3D`; not done.)
 
 ## Smaller polish
 
