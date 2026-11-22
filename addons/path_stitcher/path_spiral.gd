@@ -10,35 +10,58 @@ extends Path3D
 ## is the path's left (+Z of a block). Each turn climbs `rise_per_turn`; set it
 ## to your block height so every turn rests on the one below.
 
-## Number of full turns (fractions allowed).
+@export_group("Spiral")
+
+## Number of full turns (fractions allowed). With snapping on: quarter turns.
 @export_range(0.25, 20.0, 0.01, "or_greater") var turns := 3.5:
 	set(v):
-		turns = v
-		_queue_build()
+		turns = maxf(_snapped(v, 0.25), 0.25)
+		_value_changed(v, turns)
 
 ## Radius at the start of the path.
 @export_range(1.0, 500.0, 0.01, "or_greater", "suffix:m") var start_radius := 32.0:
 	set(v):
-		start_radius = v
-		_queue_build()
+		start_radius = maxf(_snapped(v, snap_step), 1.0)
+		_value_changed(v, start_radius)
 
 ## Radius at the end of the path. Smaller than the start makes a tapering tower.
 @export_range(1.0, 500.0, 0.01, "or_greater", "suffix:m") var end_radius := 14.0:
 	set(v):
-		end_radius = v
-		_queue_build()
+		end_radius = maxf(_snapped(v, snap_step), 1.0)
+		_value_changed(v, end_radius)
 
 ## Height gained per full turn. Negative winds the path downwards.
 @export_range(-200.0, 200.0, 0.01, "or_greater", "or_less", "suffix:m") var rise_per_turn := 16.0:
 	set(v):
-		rise_per_turn = v
-		_queue_build()
+		rise_per_turn = _snapped(v, snap_step)
+		_value_changed(v, rise_per_turn)
 
 ## Curve points per turn. More points follow the circle more closely.
 @export_range(6, 96, 1, "or_greater") var points_per_turn := 24:
 	set(v):
 		points_per_turn = maxi(v, 6)
 		_queue_build()
+
+@export_group("Snapping")
+
+## Round the radii and the rise to `snap_step` (and the turns to quarter turns)
+## when you change them. Off: any value, down to 0.01.
+@export var snap_values := false:
+	set(v):
+		snap_values = v
+		if v and is_node_ready():
+			turns = turns # each setter snaps its value and queues a rebuild
+			start_radius = start_radius
+			end_radius = end_radius
+			rise_per_turn = rise_per_turn
+			notify_property_list_changed.call_deferred()
+
+## The step the radii and the rise snap to while `snap_values` is on.
+@export_range(0.01, 10.0, 0.01, "suffix:m") var snap_step := 0.5:
+	set(v):
+		snap_step = maxf(v, 0.01)
+		if snap_values and is_node_ready():
+			snap_values = true
 
 ## Rebuild the curve now.
 @export_tool_button("Rebuild curve", "Reload") var rebuild_action = build
@@ -49,6 +72,17 @@ var _queued := false
 func _ready() -> void:
 	if curve == null or curve.point_count < 2:
 		build()
+
+
+func _snapped(v: float, step: float) -> float:
+	return snappedf(v, step) if snap_values else v
+
+
+## A value was set; rebuild, and if snapping changed it, refresh the Inspector.
+func _value_changed(asked: float, got: float) -> void:
+	if not is_equal_approx(asked, got):
+		notify_property_list_changed.call_deferred()
+	_queue_build()
 
 
 func _queue_build() -> void:
