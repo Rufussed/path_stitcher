@@ -4,6 +4,7 @@
 # Keep this list in sync if new top-level folders or files are added.
 /.gitignore export-ignore
 /AGENTS.md export-ignore
+/CHANGELOG.md export-ignore
 /CLAUDE.md export-ignore
 /demo export-ignore
 /docs export-ignore
