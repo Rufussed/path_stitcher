@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://cwm3hswjppjir"]
+
+[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://demo/materials/floor.tres" id="1_6imq7"]
+[ext_resource type="ArrayMesh" uid="uid://82taeteu0f5s" path="res://demo/meshes/arch_wall.res" id="2_kv0uf"]
+[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://demo/materials/stone.tres" id="3_r0xc7"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_6npns"]
+size = Vector3(6, 0.5, 11)
+subdivide_width = 11
+subdivide_depth = 11
+
+[sub_resource type="BoxMesh" id="BoxMesh_cafic"]
+size = Vector3(6, 1, 0.4)
+subdivide_width = 11
+
+[node name="ArchBlock" type="Node3D" unique_id=1061616557]
+
+[node name="ColVis-Floor" type="MeshInstance3D" parent="." unique_id=1192604364]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+material_override = ExtResource("1_6imq7")
+mesh = SubResource("BoxMesh_6npns")
+
+[node name="ColVis-Wall" type="MeshInstance3D" parent="." unique_id=634292065]
+mesh = ExtResource("2_kv0uf")
+
+[node name="ColVis-Rail" type="MeshInstance3D" parent="." unique_id=1971204843]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -5.3)
+material_override = ExtResource("3_r0xc7")
+mesh = SubResource("BoxMesh_cafic")

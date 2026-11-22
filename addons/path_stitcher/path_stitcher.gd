@@ -714,7 +714,9 @@ func _collect(root: Node) -> Array:
 		var rel := _relative_transform(m, root)
 		var nb := rel.basis.inverse().transposed()
 		for si in m.mesh.get_surface_count():
-			if m.mesh.surface_get_primitive_type(si) != Mesh.PRIMITIVE_TRIANGLES:
+			# Only ArrayMesh has surface_get_primitive_type(); PrimitiveMeshes
+			# (BoxMesh, CylinderMesh, ...) are always triangles.
+			if m.mesh is ArrayMesh and (m.mesh as ArrayMesh).surface_get_primitive_type(si) != Mesh.PRIMITIVE_TRIANGLES:
 				continue
 			var arr := m.mesh.surface_get_arrays(si)
 			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
@@ -926,7 +928,7 @@ func _build_instances(out: Node3D, rows: Dictionary) -> int:
 				continue
 			var mesh := ArrayMesh.new()
 			var arrays: Array = g.arrays
-			if flip_side:
+			if not flip_side: # see _reverse_winding: the unflipped mapping is the mirror
 				arrays = arrays.duplicate()
 				arrays[Mesh.ARRAY_INDEX] = _reverse_winding(g.arrays[Mesh.ARRAY_INDEX])
 			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -1006,7 +1008,7 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 			out_t[i * 4 + 1] = t.y
 			out_t[i * 4 + 2] = t.z
 	arr[Mesh.ARRAY_VERTEX] = out_v
-	if flip_side and src[Mesh.ARRAY_INDEX] != null:
+	if not flip_side and src[Mesh.ARRAY_INDEX] != null:
 		arr[Mesh.ARRAY_INDEX] = _reverse_winding(src[Mesh.ARRAY_INDEX]) # a mirror turns triangles inside out
 	if normals != null:
 		arr[Mesh.ARRAY_NORMAL] = out_n
@@ -1015,8 +1017,12 @@ func _deform(src: Array, tbl_p: PackedVector3Array, tbl_l: PackedVector3Array, t
 	return arr
 
 
-## The triangle indices with each triangle's winding reversed. Flip Side mirrors
-## the geometry, which would otherwise leave every face pointing the wrong way.
+## The triangle indices with each triangle's winding reversed. Block +Z maps to
+## the path's left, but in Godot's right-handed space +Z is to the right of +X
+## (forward) with +Y up, so the default mapping (forward, up, left) is a mirror
+## and would turn every triangle inside out. Flip Side negates left, which
+## makes the mapping a plain rotation again, so it is the one case that keeps
+## the source winding. (Double-sided materials hide a wrong winding.)
 func _reverse_winding(idx: PackedInt32Array) -> PackedInt32Array:
 	var out := idx.duplicate()
 	for i in range(0, idx.size() - 2, 3):

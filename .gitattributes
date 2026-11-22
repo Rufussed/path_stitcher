@@ -1,0 +1,21 @@
+# Release zips (GitHub "Download ZIP" / git archive) contain only the addon
+# plus LICENSE/README/CHANGELOG. Everything else is the SkateOrDie test project.
+# Keep this list in sync if new top-level folders or files are added.
+/.gitignore export-ignore
+/AGENTS.md export-ignore
+/CLAUDE.md export-ignore
+/assets export-ignore
+/blendot_meshes export-ignore
+/docs export-ignore
+/game_params.* export-ignore
+/ground_checker.png* export-ignore
+/main.* export-ignore
+/paths export-ignore
+/player export-ignore
+/project.godot export-ignore
+/addons/GPUTrail export-ignore
+/addons/blendot export-ignore
+/addons/godot_live_mcp export-ignore
+/addons/godot_xterm export-ignore
+/addons/sky_3d export-ignore
+/demo export-ignore

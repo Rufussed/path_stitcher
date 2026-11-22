@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://d1j86ukdprlbg"]
+
+[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://demo/materials/floor.tres" id="1_cjcew"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_y7gun"]
+size = Vector3(6, 8, 11)
+subdivide_width = 11
+subdivide_height = 4
+subdivide_depth = 11
+
+[node name="BaseBlock" type="Node3D" unique_id=86401172]
+
+[node name="ColVis-Base" type="MeshInstance3D" parent="." unique_id=808023529]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, 0)
+material_override = ExtResource("1_cjcew")
+mesh = SubResource("BoxMesh_y7gun")
