@@ -11,25 +11,25 @@ extends Path3D
 ## to your block height so every turn rests on the one below.
 
 ## Number of full turns (fractions allowed).
-@export_range(0.25, 20.0, 0.25, "or_greater") var turns := 3.5:
+@export_range(0.25, 20.0, 0.01, "or_greater") var turns := 3.5:
 	set(v):
 		turns = v
 		_queue_build()
 
 ## Radius at the start of the path.
-@export_range(1.0, 500.0, 0.5, "or_greater", "suffix:m") var start_radius := 32.0:
+@export_range(1.0, 500.0, 0.01, "or_greater", "suffix:m") var start_radius := 32.0:
 	set(v):
 		start_radius = v
 		_queue_build()
 
 ## Radius at the end of the path. Smaller than the start makes a tapering tower.
-@export_range(1.0, 500.0, 0.5, "or_greater", "suffix:m") var end_radius := 14.0:
+@export_range(1.0, 500.0, 0.01, "or_greater", "suffix:m") var end_radius := 14.0:
 	set(v):
 		end_radius = v
 		_queue_build()
 
 ## Height gained per full turn. Negative winds the path downwards.
-@export_range(-200.0, 200.0, 0.5, "or_greater", "or_less", "suffix:m") var rise_per_turn := 16.0:
+@export_range(-200.0, 200.0, 0.01, "or_greater", "or_less", "suffix:m") var rise_per_turn := 16.0:
 	set(v):
 		rise_per_turn = v
 		_queue_build()
