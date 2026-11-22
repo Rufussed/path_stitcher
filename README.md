@@ -61,6 +61,8 @@ The building blocks (in `demo/blocks/`) are each 5 m joint to joint, with no ove
 - **First block:** `base_block`, a solid 16 m block, placed 12 times to form the base (and once more as the last block).
 - **Block sequence:** `tower_block`, repeated. Its lower storey is an open arcade (pillars with arches running both along and across the path), and its upper storey is a solid wall with a round-headed window. Each turn of the spiral stands on top of the one below.
 
+To reshape the spiral, select the `SpiralPath` node and change its **Turns**, **Start Radius**, **End Radius** and **Rise Per Turn** in the Inspector (`demo/spiral_path.gd`, a small `@tool` script that rebuilds the curve); the tower follows live. Set Rise Per Turn to the block height (16 m) so each turn rests on the one below.
+
 The demo is not included in the addon zip.
 
 ## Authoring blocks
