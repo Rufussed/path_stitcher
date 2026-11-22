@@ -61,9 +61,13 @@ The building blocks (in `demo/blocks/`) are each 5 m joint to joint, with no ove
 - **First block:** `base_block`, a solid 16 m block, placed 12 times to form the base (and once more as the last block).
 - **Block sequence:** `tower_block`, repeated. Its lower storey is an open arcade (pillars with arches running both along and across the path), and its upper storey is a solid wall with a round-headed window. Each turn of the spiral stands on top of the one below.
 
-To reshape the spiral, select the `SpiralPath` node and change its **Turns**, **Start Radius**, **End Radius** and **Rise Per Turn** in the Inspector (`demo/spiral_path.gd`, a small `@tool` script that rebuilds the curve); the tower follows live. Set Rise Per Turn to the block height (16 m) so each turn rests on the one below.
+The spiral is a `PathSpiral` node. To reshape it, select it and change **Turns**, **Start Radius**, **End Radius** and **Rise Per Turn** in the Inspector; the tower follows live. Set Rise Per Turn to the block height (16 m) so each turn rests on the one below.
 
 The demo is not included in the addon zip.
+
+## Many towers
+
+For a game with many towers, save one tower as its own scene (a `PathSpiral` with a `PathStitcher` child) and instance it wherever you need one. Turn on Editable Children on an instance to give that tower its own turns and radii. Save the blocks as a shared `.tres` `PathSequence` so every tower uses the same ones. In Linear mode each tower draws with a few instanced meshes, so many towers stay cheap.
 
 ## Authoring blocks
 
@@ -92,6 +96,7 @@ Origin at the centre of X and Z, at floor level. Give each block a small `overla
 | `PathStitcher` (Node3D) | Builds the blocks along a `Path3D`. |
 | `PathSequence` (Resource) | The start block, the repeating pattern, the end block, fitting and markers. |
 | `PathModule` (Resource) | One block: its scene, length, overlap, stretch and offsets. |
+| `PathSpiral` (Path3D) | Optional. A path that builds its own spiral curve from Inspector settings: turns, start and end radius, rise per turn. Any `Path3D` works with a `PathStitcher`; this one just saves you placing points by hand. |
 | `PathMarker` (Marker3D) | Place a block at a spot on the path by moving this node. |
 | `PathGroundDraper` (Node3D) | Child of a `Path3D`. The **Drape** button lays the curve onto physics collision below it. |
 | `PathAxesFollower` (Node) | Child of a `Node3D`. Supplies forward and right axes from the nearest path in a group. It never moves its parent. |

@@ -8,7 +8,7 @@ Yes. `PathStitcher` has `class_name PathStitcher` and `extends Node3D`, so it al
 
 ## Already good
 
-- Everything lives in `addons/path_stitcher/` (about 180 KB) with a `plugin.cfg` and `plugin.gd`.
+- Everything lives in `addons/path_stitcher/` (about 190 KB) with a `plugin.cfg` and `plugin.gd`.
 - Scripts use `@tool`, doc comments and `class_name`.
 - Paths inside the addon are all `res://addons/path_stitcher/...`.
 

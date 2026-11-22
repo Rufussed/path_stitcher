@@ -1,9 +1,10 @@
 @tool
-class_name SpiralPath
+class_name PathSpiral
 extends Path3D
 ## A Path3D that builds its own curve as a spiral, so you can reshape it from
 ## the Inspector instead of editing points by hand. Change any value below and
-## the curve is rebuilt; a PathStitcher on this path follows it live.
+## the curve is rebuilt; a PathStitcher on this path follows it live. Optional:
+## any Path3D works with a PathStitcher.
 ##
 ## The path runs counter-clockwise seen from above, so the outside of the turn
 ## is the path's left (+Z of a block). Each turn climbs `rise_per_turn`; set it
