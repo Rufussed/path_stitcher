@@ -5,7 +5,6 @@
 [ext_resource type="PackedScene" uid="uid://d1j86ukdprlbg" path="res://blocks/base_block.tscn" id="3_nyvao"]
 [ext_resource type="Script" uid="uid://dqle5cbhie10c" path="res://addons/path_stitcher/sequence/path_module.gd" id="4_d03u5"]
 [ext_resource type="Script" uid="uid://fnjnata0erps" path="res://addons/path_stitcher/sequence/path_pattern_entry.gd" id="6_o6rmy"]
-[ext_resource type="PackedScene" uid="uid://de0h0we6yxjju" path="res://blocks/window_block.tscn" id="7_sv07r"]
 [ext_resource type="PackedScene" uid="uid://b4depkqf8dyjo" path="res://blocks/tower_block.tscn" id="8_hilxi"]
 [ext_resource type="Script" uid="uid://bhfotg0hs6k15" path="res://addons/path_stitcher/sequence/path_section.gd" id="9_80afm"]
 [ext_resource type="Script" uid="uid://uhjkd3rie6s2" path="res://addons/path_stitcher/path_circle.gd" id="9_yh44g"]
@@ -15,7 +14,7 @@
 albedo_color = Color(0, 0.33931327, 0, 1)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_s3qmy"]
-size = Vector2(300, 300)
+size = Vector2(500, 500)
 
 [sub_resource type="Curve3D" id="Curve3D_76oxp"]
 _data = {
@@ -28,15 +27,6 @@ point_count = 289
 script = ExtResource("4_d03u5")
 scene = ExtResource("3_nyvao")
 
-[sub_resource type="Resource" id="Resource_04x1f"]
-script = ExtResource("4_d03u5")
-scene = ExtResource("7_sv07r")
-
-[sub_resource type="Resource" id="Resource_x0qvr"]
-script = ExtResource("6_o6rmy")
-module = SubResource("Resource_04x1f")
-count = 4
-
 [sub_resource type="Resource" id="Resource_1pww6"]
 script = ExtResource("4_d03u5")
 scene = ExtResource("8_hilxi")
@@ -44,7 +34,7 @@ scene = ExtResource("8_hilxi")
 [sub_resource type="Resource" id="Resource_u8s0d"]
 script = ExtResource("6_o6rmy")
 module = SubResource("Resource_1pww6")
-count = 8
+count = 14
 
 [sub_resource type="Resource" id="Resource_76oxp"]
 script = ExtResource("4_d03u5")
@@ -53,9 +43,12 @@ scene = ExtResource("3_nyvao")
 [sub_resource type="Resource" id="Resource_e5nqw"]
 script = ExtResource("9_80afm")
 start = SubResource("Resource_76oxp")
-start_count = 118
+start_count = 123
 end = SubResource("Resource_sfpc8")
-pattern = Array[ExtResource("6_o6rmy")]([SubResource("Resource_x0qvr"), SubResource("Resource_u8s0d")])
+end_count = 19
+anchor_end = true
+pattern = Array[ExtResource("6_o6rmy")]([SubResource("Resource_u8s0d")])
+fit = 1
 
 [sub_resource type="Curve3D" id="Curve3D_d03u5"]
 _data = {
@@ -75,6 +68,51 @@ module = SubResource("Resource_kvyee")
 [sub_resource type="Resource" id="Resource_sv07r"]
 script = ExtResource("9_80afm")
 pattern = Array[ExtResource("6_o6rmy")]([SubResource("Resource_o6rmy")])
+
+[sub_resource type="Curve3D" id="Curve3D_iwla6"]
+_data = {
+"points": PackedVector3Array(0, 0, 15.463973, 0, 0, -15.463973, 28, 0, 0, 15.463973, 0, 0, -15.463973, 0, 0, 0, 0, -28, 0, 0, -15.463973, 0, 0, 15.463973, -28, 0, 0, -15.463973, 0, 0, 15.463973, 0, 0, 0, 0, 28, 0, 0, 15.463973, 0, 0, -15.463973, 28, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
+}
+point_count = 5
+
+[sub_resource type="Resource" id="Resource_yh44g"]
+script = ExtResource("4_d03u5")
+scene = ExtResource("8_hilxi")
+
+[sub_resource type="Resource" id="Resource_nyvao"]
+script = ExtResource("6_o6rmy")
+module = SubResource("Resource_yh44g")
+
+[sub_resource type="Resource" id="Resource_d03u5"]
+script = ExtResource("9_80afm")
+pattern = Array[ExtResource("6_o6rmy")]([SubResource("Resource_nyvao")])
+
+[sub_resource type="Curve3D" id="Curve3D_kvyee"]
+_data = {
+"points": PackedVector3Array(0, 0, 13.254834, 0, 0, -13.254834, 24, 0, 0, 13.254834, 0, 0, -13.254834, 0, 0, 0, 0, -24, 0, 0, -13.254834, 0, 0, 13.254834, -24, 0, 0, -13.254834, 0, 0, 13.254834, 0, 0, 0, 0, 24, 0, 0, 13.254834, 0, 0, -13.254834, 24, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
+}
+point_count = 5
+
+[sub_resource type="Curve3D" id="Curve3D_o6rmy"]
+_data = {
+"points": PackedVector3Array(0, 0, 11.045695, 0, 0, -11.045695, 20, 0, 0, 11.045695, 0, 0, -11.045695, 0, 0, 0, 0, -20, 0, 0, -11.045695, 0, 0, 11.045695, -20, 0, 0, -11.045695, 0, 0, 11.045695, 0, 0, 0, 0, 20, 0, 0, 11.045695, 0, 0, -11.045695, 20, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
+}
+point_count = 5
+
+[sub_resource type="Curve3D" id="Curve3D_sv07r"]
+_data = {
+"points": PackedVector3Array(0, 0, 8.836556, 0, 0, -8.836556, 16, 0, 0, 8.836556, 0, 0, -8.836556, 0, 0, 0, 0, -16, 0, 0, -8.836556, 0, 0, 8.836556, -16, 0, 0, -8.836556, 0, 0, 8.836556, 0, 0, 0, 0, 16, 0, 0, 8.836556, 0, 0, -8.836556, 16, 0, 0),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
+}
+point_count = 5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_46bxa"]
+top_radius = 0.0
+bottom_radius = 33.156
+height = 50.0
 
 [node name="Node3D" type="Node3D" unique_id=561293899]
 
@@ -99,7 +137,7 @@ sections = Array[ExtResource("9_80afm")]([SubResource("Resource_e5nqw")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle" type="Path3D" parent="." unique_id=1984748790]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 186.85603, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 191.6897, 0)
 curve = SubResource("Curve3D_d03u5")
 script = ExtResource("9_yh44g")
 radius = 32.0
@@ -110,3 +148,85 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33.95076, 0)
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_sv07r")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="PathCircle2" type="Path3D" parent="." unique_id=1766743190]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 207.56071, 0)
+curve = SubResource("Curve3D_iwla6")
+script = ExtResource("9_yh44g")
+radius = 28.0
+metadata/_custom_type_script = "uid://uhjkd3rie6s2"
+
+[node name="PathStitcher" type="Node3D" parent="PathCircle2" unique_id=1629644395]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+script = ExtResource("2_yh44g")
+sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
+metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="PathCircle3" type="Path3D" parent="." unique_id=151157722]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 222.69034, 0)
+curve = SubResource("Curve3D_kvyee")
+script = ExtResource("9_yh44g")
+radius = 24.0
+metadata/_custom_type_script = "uid://uhjkd3rie6s2"
+
+[node name="PathStitcher" type="Node3D" parent="PathCircle3" unique_id=665070623]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+script = ExtResource("2_yh44g")
+sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
+metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="PathCircle4" type="Path3D" parent="." unique_id=1164700024]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 236.83124, 0)
+curve = SubResource("Curve3D_kvyee")
+script = ExtResource("9_yh44g")
+radius = 24.0
+metadata/_custom_type_script = "uid://uhjkd3rie6s2"
+
+[node name="PathStitcher" type="Node3D" parent="PathCircle4" unique_id=1058836800]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+script = ExtResource("2_yh44g")
+sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
+metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="PathCircle5" type="Path3D" parent="." unique_id=1039075153]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 252.43509, 0)
+curve = SubResource("Curve3D_kvyee")
+script = ExtResource("9_yh44g")
+radius = 24.0
+metadata/_custom_type_script = "uid://uhjkd3rie6s2"
+
+[node name="PathStitcher" type="Node3D" parent="PathCircle5" unique_id=338492986]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+script = ExtResource("2_yh44g")
+sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
+metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="PathCircle6" type="Path3D" parent="." unique_id=1694914357]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 283.96622, 0)
+curve = SubResource("Curve3D_o6rmy")
+script = ExtResource("9_yh44g")
+metadata/_custom_type_script = "uid://uhjkd3rie6s2"
+
+[node name="PathStitcher" type="Node3D" parent="PathCircle6" unique_id=1747643133]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33.95076, 0)
+script = ExtResource("2_yh44g")
+sections = Array[ExtResource("9_80afm")]([SubResource("Resource_sv07r")])
+metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="PathCircle7" type="Path3D" parent="." unique_id=787125443]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 315.27985, 0)
+curve = SubResource("Curve3D_sv07r")
+script = ExtResource("9_yh44g")
+radius = 16.0
+metadata/_custom_type_script = "uid://uhjkd3rie6s2"
+
+[node name="PathStitcher" type="Node3D" parent="PathCircle7" unique_id=1735117020]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33.95076, 0)
+script = ExtResource("2_yh44g")
+sections = Array[ExtResource("9_80afm")]([SubResource("Resource_sv07r")])
+metadata/_custom_type_script = "uid://lbd21tfxqko"
+
+[node name="roof" type="CSGMesh3D" parent="." unique_id=1253713840]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 356.03918, 0)
+visible = false
+mesh = SubResource("CylinderMesh_46bxa")
