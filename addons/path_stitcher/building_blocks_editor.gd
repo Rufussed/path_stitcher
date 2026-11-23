@@ -134,7 +134,7 @@ func _section_box(si: int) -> Control:
 	mid_label.custom_minimum_size.x = _px(HANDLE_WIDTH)
 	mid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid_label.tooltip_text = ("The blocks between First and Last, drawn at random; each row's number is its weight."
-			if random else "The blocks between First and Last, repeated in this order to fill the section.")
+			if random else "The blocks between First and Last, repeated in this order, to fill the section or a set number of times.")
 	mid_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	mid.add_child(mid_label)
 	var mid_rule := HSeparator.new()
@@ -148,12 +148,16 @@ func _section_box(si: int) -> Control:
 	if not random:
 		var rep_row := HBoxContainer.new()
 		rep_row.add_child(_spacer(HANDLE_WIDTH))
-		var rep := CheckBox.new()
-		rep.text = "Repeat between First and Last"
-		rep.tooltip_text = "On: the blocks repeat to fill the space from the First block to the Last block.\nOff: they are placed once, each row's × being how many of that block are placed."
-		rep.button_pressed = seq.repeat_pattern != false
-		rep.toggled.connect(_on_repeat.bind(seq))
-		rep_row.add_child(rep)
+		var kind := _option(["Continuous", "Numbered"], 0 if seq.repeat_count == 0 else 1)
+		kind.tooltip_text = "Continuous: the blocks repeat to fill the space from the First block to the Last block.\nNumbered: the blocks are placed a set number of times, unstretched; any gap stays."
+		kind.item_selected.connect(_on_repeat_kind.bind(seq))
+		rep_row.add_child(kind)
+		if seq.repeat_count > 0:
+			var times := _spin(seq.repeat_count, 1.0, 1000.0, 1.0)
+			times.suffix = "×"
+			times.tooltip_text = "How many times the blocks are placed."
+			times.value_changed.connect(_on_int.bind(seq, &"repeat_count", "Set repeat count"))
+			rep_row.add_child(times)
 		box.add_child(rep_row)
 	box.add_child(_end_row(seq, si, "Last", &"end", &"end_count"))
 
@@ -634,8 +638,8 @@ func _on_slot_scene(scene: PackedScene, seq: PathSection) -> void:
 		_add_blocks_from([scene], seq)
 
 
-func _on_repeat(on: bool, seq: PathSection) -> void:
-	_apply(seq, &"repeat_pattern", on, "Toggle repeat")
+func _on_repeat_kind(index: int, seq: PathSection) -> void:
+	_apply(seq, &"repeat_count", 0 if index == 0 else 1, "Set repeat")
 
 
 

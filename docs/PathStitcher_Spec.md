@@ -206,7 +206,7 @@ Building blocks are Resources, stored inside the scene (or saved as a `.tres` an
 | | `mode` (PATTERN / RANDOM) | Repeat in order, or draw at random using each row's count as its weight |
 | | `end` (PathModule, optional), `end_count` (int ≥ 1), `anchor_end` | Last block, placed `end_count` times at the path end |
 | | `fit` (enum) | How the blocks meet the end exactly (below) |
-| | `repeat_pattern` (bool, default on) | On: the block sequence repeats to fill the space between the first and last block. Off: it is placed once, each row's count being how many of that block are placed, never stretched; the last block then simply follows it. Random sequences always fill |
+| | `repeat_count` (int, default 0) | 0 = continuous: the block sequence repeats to fill the space between the first and last block. A number N: it is placed N times, each row's count being how many of that block per pass, never stretched; the last block then simply follows it. Random sequences always fill. (An old `repeat_pattern = false` loads as `repeat_count = 1`.) |
 | | `pattern_offset` (int) | Start the pattern part-way through, so neighbouring paths can continue each other's rhythm |
 | | `random_seed`, `max_repeat` | RANDOM mode: the seed, and the longest run of one block |
 | | `markers`, `marker_snap` | Blocks at specific distances (below) |
@@ -217,7 +217,7 @@ Building blocks are Resources, stored inside the scene (or saved as a `.tres` an
 
 - **First block px:** shifts where the first block sits, and the block sequence starts only after it. With px = 20 the first block occupies 20–26 m and the pattern begins at 26 m (after all `start_count` copies).
 - **Last block px (Repeat on):** shifts where the last block sits and so where the repeating pattern stops. Px +50 puts the last block 50 m past the path end and the pattern runs on to it; px −40 stops the pattern 40 m early. Anchor Last block to end of path still places it unstretched at that position.
-- **Repeat off:** the block sequence is placed once (each row's × is the exact number of copies), the first block px still moves the start, and the last block follows the sequence directly. Anchor and the last block's px are then not used to find the end (the last block's px is just a slide along the path). Blocks of the single pass that do not fit before the last block are left out with a warning.
+- **Numbered repeat:** the block sequence is placed N times (each row's × is the number of copies per pass), the first block px still moves the start, and the last block follows the sequence directly. Anchor and the last block's px are then not used to find the end (the last block's px is just a slide along the path). Blocks of the passes that do not fit before the last block are left out with a warning.
 - **End Offset** (SHAPE group) moves the end of the whole layout: negative stops short of the path end, positive runs past it.
 
 ### Layout along the path
@@ -289,7 +289,7 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 |           Along px    [ Place v ]  (Place | Stretch)      |
 |           Auto length 5.00 m (mesh extent minus overlap)   |
 |         [ <empty> .............. v ]  ×[ 1 ] (faded)       |
-|         [x] Repeat between First and Last                   |
+|         [Continuous v]  or  [Numbered v] [3 ×]               |
 |  Last   [ EndBlock.blend ....... v ]  ×[ 3 ]  >           |
 |         [ ] Anchor Last block to end of path               |
 |  Fit    [ Stretch v ]     (Randomize on: Seed, Max repeat) |
@@ -302,7 +302,7 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 
 - **One column layout:** First, Last and every block row share the same columns (label or grip, scene box, multiplier, expander, remove), so the scene boxes line up.
 - **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a compact scene picker (shows the file name; Quick Load, Load, Clear, Show in FileSystem, or drag a `.blend` / `.glb` / `.gltf` / `.tscn` from the FileSystem dock onto it), the multiplier (`×N` copies; a weight when Randomize is on), an expander (>) for that block's length, overlap, Offset (px, py, pz), an **Along px** dropdown (Place or Stretch, see `stretch_to_length`), and a remove button. The picker is a custom control because Godot's resource picker shows a large thumbnail for scenes.
-- **Repeat between First and Last:** the checkbox under the empty slot (hidden when Randomize is on); see "First and last block positions, and Repeat".
+- **Repeat:** the Continuous / Numbered dropdown under the empty slot, with a × count when Numbered (hidden when Randomize is on); see "First and last block positions, and Repeat".
 - **First / Last multipliers:** `PathSequence.start_count` and `end_count` (min 1) repeat the first or last block, for example three end caps. With Anchor on, the repeated last blocks are all placed unstretched against the path end.
 - **Empty slot instead of an Add button:** the list always ends with an empty picker. Choosing a scene in it, or dropping scene files on it (several files add one row each, one undo step), turns it into a block row and a new empty slot appears below. Dropping on a filled row's picker replaces that row's scene. Dragging nodes from the Scene dock is not supported.
 - **First / Last block:** the same picker, expander and a trash button (it empties the slot and keeps the multiplier; one undo step); **Anchor Last block to end of path** (its own line under the Last row) pins the last block to the path end.

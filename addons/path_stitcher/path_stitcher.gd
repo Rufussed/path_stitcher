@@ -455,8 +455,8 @@ func _layout(length: float) -> Array:
 ## One section's modules between a and b.
 func _layout_section(seq: PathSection, a: float, b: float, markers: Array) -> Array:
 	var gen := _Gen.new(seq, self)
-	# Repeat off: the block sequence is placed once and the last block simply follows it.
-	var repeating: bool = seq.repeat_pattern != false or seq.mode == PathSection.Mode.RANDOM
+	# Numbered repeat: the block sequence is placed that many times and the last block simply follows it.
+	var repeating := seq.is_continuous()
 	var lead: Array = []
 	var trail: Array = []
 	var fixed: Array = []
@@ -530,16 +530,18 @@ func _fill(seq: PathSection, a: float, b: float, lead: Array, trail: Array, gen:
 
 	var fit := seq.fit
 	var mids: Array = []
-	var repeating: bool = seq.repeat_pattern != false or seq.mode == PathSection.Mode.RANDOM
+	var repeating := seq.is_continuous()
 	if not repeating:
 		fit = PathSection.Fit.NONE # a single pass is never stretched
 		if not gen.is_empty() and not gen.placed_once:
 			gen.placed_once = true
+			var wanted: int = gen.flat.size() * seq.repeat_count
 			var used := fixed_len
-			for m in gen.flat:
+			for k in wanted:
+				var m: int = gen.flat[k % gen.flat.size()]
 				var m_len: float = _mods[m].length
 				if used + m_len > span + 0.001:
-					_warnings.append("%d block(s) of the single pass do not fit between the first and last block and were left out." % (gen.flat.size() - mids.size()))
+					_warnings.append("%d block(s) of the repeat do not fit between the first and last block and were left out." % (wanted - mids.size()))
 					break
 				mids.append(m)
 				used += m_len
@@ -1191,7 +1193,7 @@ class _Gen:
 	var max_repeat := 0
 	var last := -1
 	var run := 0
-	var placed_once := false # Repeat off: the single pass has been placed
+	var placed_once := false # Numbered repeat: the passes have been placed
 
 	func _init(seq: PathSection = null, host = null) -> void:
 		if seq == null:
