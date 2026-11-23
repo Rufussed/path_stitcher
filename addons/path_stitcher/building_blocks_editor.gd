@@ -99,16 +99,16 @@ func _section_box(si: int) -> Control:
 	name_edit.placeholder_text = "Section %d" % (si + 1)
 	name_edit.tooltip_text = "A name for this section (optional)."
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_edit.size_flags_stretch_ratio = 1.0
-	name_edit.custom_minimum_size.x = _px(50)
+	name_edit.size_flags_stretch_ratio = 2.0
+	name_edit.custom_minimum_size.x = _px(90)
 	name_edit.text_submitted.connect(_on_title.bind(seq))
 	name_edit.focus_exited.connect(func(): _on_title(name_edit.text, seq))
 	head.add_child(name_edit)
 	var len_spin := _spin(seq.length, 0.0, 100000.0, 0.1, " m")
 	len_spin.tooltip_text = "How far along the path this section runs. 0 = share whatever the other sections leave over."
-	len_spin.custom_minimum_size.x = _px(110)
+	len_spin.custom_minimum_size.x = _px(90)
 	len_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	len_spin.size_flags_stretch_ratio = 2.5
+	len_spin.size_flags_stretch_ratio = 1.5
 	len_spin.value_changed.connect(_on_spin.bind(seq, &"length", "Set section length"))
 	head.add_child(len_spin)
 	head.add_child(_icon_button("MoveUp", "^", "Move this section earlier along the path", _move_section.bind(si, -1), si > 0))
@@ -134,19 +134,19 @@ func _section_box(si: int) -> Control:
 	mid_label.custom_minimum_size.x = _px(HANDLE_WIDTH)
 	mid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid_label.tooltip_text = ("The blocks between First and Last, drawn at random; each row's number is its weight."
-			if random else "The blocks between First and Last, repeated in this order, to fill the section or a set number of times.")
+			if random else "The blocks between First and Last, repeated in this order, to fill the section (Fill) or a set number of times (Times).")
 	mid_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	mid.add_child(mid_label)
 	if not random:
-		var kind := _option(["Continuous", "Numbered"], 0 if seq.repeat_count == 0 else 1)
-		kind.tooltip_text = "Continuous: the blocks repeat to fill the space from the First block to the Last block.\nNumbered: the blocks are placed a set number of times, unstretched; any gap stays."
+		var kind := _option(["Fill", "Times"], 0 if seq.repeat_count == 0 else 1)
+		kind.tooltip_text = "Fill: the blocks repeat to fill the space from the First block to the Last block.\nTimes: the blocks are placed a set number of times, unstretched; any gap stays."
 		kind.item_selected.connect(_on_repeat_kind.bind(seq))
 		mid.add_child(kind)
-		if seq.repeat_count > 0:
-			var times := _spin(seq.repeat_count, 1.0, 1000.0, 1.0, "×")
-			times.tooltip_text = "How many times the blocks are placed."
-			times.value_changed.connect(_on_int.bind(seq, &"repeat_count", "Set repeat count"))
-			mid.add_child(times)
+		var times := _spin(maxi(seq.repeat_count, 1), 1.0, 1000.0, 1.0, " ×")
+		times.editable = seq.repeat_count > 0
+		times.tooltip_text = "How many times the blocks are placed (used when set to Times)."
+		times.value_changed.connect(_on_int.bind(seq, &"repeat_count", "Set repeat count"))
+		mid.add_child(times)
 	var mid_rule := HSeparator.new()
 	mid_rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid_rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER

@@ -289,7 +289,7 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 |           Along px    [ Place v ]  (Place | Stretch)      |
 |           Auto length 5.00 m (mesh extent minus overlap)   |
 |         [ <empty> .............. v ]  ×[ 1 ] (faded)       |
-|         [Continuous v]  or  [Numbered v] [3 ×]               |
+|         [Fill v]  or  [Times v] [3 ×]               |
 |  Last   [ EndBlock.blend ....... v ]  ×[ 3 ]  >           |
 |         [ ] Anchor Last block to end of path               |
 |  Fit    [ Stretch v ]     (Randomize on: Seed, Max repeat) |
@@ -302,7 +302,7 @@ The SHAPE group sits directly under Path Node, with **Bend** as two toggle butto
 
 - **One column layout:** First, Last and every block row share the same columns (label or grip, scene box, multiplier, expander, remove), so the scene boxes line up.
 - **Rows:** a grip (≡) to drag-reorder (drop it on another row's grip), a compact scene picker (shows the file name; Quick Load, Load, Clear, Show in FileSystem, or drag a `.blend` / `.glb` / `.gltf` / `.tscn` from the FileSystem dock onto it), the multiplier (`×N` copies; a weight when Randomize is on), an expander (>) for that block's length, overlap, Offset (px, py, pz), an **Along px** dropdown (Place or Stretch, see `stretch_to_length`), and a remove button. The picker is a custom control because Godot's resource picker shows a large thumbnail for scenes.
-- **Repeat:** the Continuous / Numbered dropdown under the empty slot, with a × count when Numbered (hidden when Randomize is on); see "First and last block positions, and Repeat".
+- **Repeat:** the Fill / Times dropdown under the empty slot, with a × count (active when Times) (hidden when Randomize is on); see "First and last block positions, and Repeat".
 - **First / Last multipliers:** `PathSequence.start_count` and `end_count` (min 1) repeat the first or last block, for example three end caps. With Anchor on, the repeated last blocks are all placed unstretched against the path end.
 - **Empty slot instead of an Add button:** the list always ends with an empty picker. Choosing a scene in it, or dropping scene files on it (several files add one row each, one undo step), turns it into a block row and a new empty slot appears below. Dropping on a filled row's picker replaces that row's scene. Dragging nodes from the Scene dock is not supported.
 - **First / Last block:** the same picker, expander and a trash button (it empties the slot and keeps the multiplier; one undo step); **Anchor Last block to end of path** (its own line under the Last row) pins the last block to the path end.

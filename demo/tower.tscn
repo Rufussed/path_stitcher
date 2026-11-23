@@ -56,7 +56,6 @@ start = SubResource("Resource_76oxp")
 start_count = 118
 end = SubResource("Resource_sfpc8")
 pattern = Array[ExtResource("6_o6rmy")]([SubResource("Resource_x0qvr"), SubResource("Resource_u8s0d")])
-repeat_count = null
 
 [sub_resource type="Curve3D" id="Curve3D_d03u5"]
 _data = {
