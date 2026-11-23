@@ -45,7 +45,6 @@ script = ExtResource("9_80afm")
 start = SubResource("Resource_76oxp")
 start_count = 123
 end = SubResource("Resource_sfpc8")
-end_count = 19
 anchor_end = true
 pattern = Array[ExtResource("6_o6rmy")]([SubResource("Resource_u8s0d")])
 fit = 1
@@ -138,6 +137,7 @@ metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle" type="Path3D" parent="." unique_id=1984748790]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 191.6897, 0)
+visible = false
 curve = SubResource("Curve3D_d03u5")
 script = ExtResource("9_yh44g")
 radius = 32.0
@@ -145,12 +145,14 @@ metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle" unique_id=1966319854]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33.95076, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_sv07r")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle2" type="Path3D" parent="." unique_id=1766743190]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 207.56071, 0)
+visible = false
 curve = SubResource("Curve3D_iwla6")
 script = ExtResource("9_yh44g")
 radius = 28.0
@@ -158,12 +160,14 @@ metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle2" unique_id=1629644395]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle3" type="Path3D" parent="." unique_id=151157722]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 222.69034, 0)
+visible = false
 curve = SubResource("Curve3D_kvyee")
 script = ExtResource("9_yh44g")
 radius = 24.0
@@ -171,12 +175,14 @@ metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle3" unique_id=665070623]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle4" type="Path3D" parent="." unique_id=1164700024]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 236.83124, 0)
+visible = false
 curve = SubResource("Curve3D_kvyee")
 script = ExtResource("9_yh44g")
 radius = 24.0
@@ -184,12 +190,14 @@ metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle4" unique_id=1058836800]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle5" type="Path3D" parent="." unique_id=1039075153]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 252.43509, 0)
+visible = false
 curve = SubResource("Curve3D_kvyee")
 script = ExtResource("9_yh44g")
 radius = 24.0
@@ -197,24 +205,28 @@ metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle5" unique_id=338492986]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.997131, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_d03u5")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle6" type="Path3D" parent="." unique_id=1694914357]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 283.96622, 0)
+visible = false
 curve = SubResource("Curve3D_o6rmy")
 script = ExtResource("9_yh44g")
 metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle6" unique_id=1747643133]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33.95076, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_sv07r")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
 
 [node name="PathCircle7" type="Path3D" parent="." unique_id=787125443]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 315.27985, 0)
+visible = false
 curve = SubResource("Curve3D_sv07r")
 script = ExtResource("9_yh44g")
 radius = 16.0
@@ -222,6 +234,7 @@ metadata/_custom_type_script = "uid://uhjkd3rie6s2"
 
 [node name="PathStitcher" type="Node3D" parent="PathCircle7" unique_id=1735117020]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33.95076, 0)
+visible = false
 script = ExtResource("2_yh44g")
 sections = Array[ExtResource("9_80afm")]([SubResource("Resource_sv07r")])
 metadata/_custom_type_script = "uid://lbd21tfxqko"
