@@ -116,27 +116,23 @@ func _section_box(si: int) -> Control:
 	head.add_child(_icon_button("Remove", "x", "Remove this section", _remove_section.bind(si), true))
 	box.add_child(head)
 
-	var rnd_row := HBoxContainer.new()
-	rnd_row.add_child(_spacer(HANDLE_WIDTH))
-	var rnd := CheckBox.new()
-	rnd.text = "Randomize"
-	rnd.tooltip_text = "Off: the blocks repeat in this order, each row repeated by its count.\nOn: blocks are drawn at random; each middle row's number is its weight."
-	rnd.button_pressed = random
-	rnd.toggled.connect(_on_randomize.bind(seq))
-	rnd_row.add_child(rnd)
-	box.add_child(rnd_row)
-
 	box.add_child(_end_row(seq, si, "First", &"start", &"start_count"))
 
 	# A label for the middle part, like First and Last have.
 	var mid := HBoxContainer.new()
-	var mid_label := _label("Random" if random else "Repeat")
+	var mid_label := _label("Repeat")
 	mid_label.custom_minimum_size.x = _px(HANDLE_WIDTH)
 	mid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid_label.tooltip_text = ("The blocks between First and Last, drawn at random; each row's number is its weight."
 			if random else "The blocks between First and Last, repeated in this order to fill the section.")
 	mid_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	mid.add_child(mid_label)
+	var rnd := CheckBox.new()
+	rnd.text = "Randomize"
+	rnd.tooltip_text = "Off: the blocks repeat in this order, each row repeated by its count.\nOn: blocks are drawn at random to fill the section, for mixed buildings along a street; each row's number is its weight."
+	rnd.button_pressed = random
+	rnd.toggled.connect(_on_randomize.bind(seq))
+	mid.add_child(rnd)
 	var mid_rule := HSeparator.new()
 	mid_rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid_rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
