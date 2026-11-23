@@ -137,6 +137,16 @@ func _section_box(si: int) -> Control:
 			if random else "The blocks between First and Last, repeated in this order, to fill the section or a set number of times.")
 	mid_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	mid.add_child(mid_label)
+	if not random:
+		var kind := _option(["Continuous", "Numbered"], 0 if seq.repeat_count == 0 else 1)
+		kind.tooltip_text = "Continuous: the blocks repeat to fill the space from the First block to the Last block.\nNumbered: the blocks are placed a set number of times, unstretched; any gap stays."
+		kind.item_selected.connect(_on_repeat_kind.bind(seq))
+		mid.add_child(kind)
+		if seq.repeat_count > 0:
+			var times := _spin(seq.repeat_count, 1.0, 1000.0, 1.0, "×")
+			times.tooltip_text = "How many times the blocks are placed."
+			times.value_changed.connect(_on_int.bind(seq, &"repeat_count", "Set repeat count"))
+			mid.add_child(times)
 	var mid_rule := HSeparator.new()
 	mid_rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid_rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -145,20 +155,6 @@ func _section_box(si: int) -> Control:
 	for i in seq.pattern.size():
 		box.add_child(_block_row(seq, si, i, random))
 	box.add_child(_empty_slot_row(seq, random))
-	if not random:
-		var rep_row := HBoxContainer.new()
-		rep_row.add_child(_spacer(HANDLE_WIDTH))
-		var kind := _option(["Continuous", "Numbered"], 0 if seq.repeat_count == 0 else 1)
-		kind.tooltip_text = "Continuous: the blocks repeat to fill the space from the First block to the Last block.\nNumbered: the blocks are placed a set number of times, unstretched; any gap stays."
-		kind.item_selected.connect(_on_repeat_kind.bind(seq))
-		rep_row.add_child(kind)
-		if seq.repeat_count > 0:
-			var times := _spin(seq.repeat_count, 1.0, 1000.0, 1.0)
-			times.suffix = "×"
-			times.tooltip_text = "How many times the blocks are placed."
-			times.value_changed.connect(_on_int.bind(seq, &"repeat_count", "Set repeat count"))
-			rep_row.add_child(times)
-		box.add_child(rep_row)
 	box.add_child(_end_row(seq, si, "Last", &"end", &"end_count"))
 
 	var fit_row := HBoxContainer.new()

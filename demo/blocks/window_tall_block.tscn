@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://bq5rnkj3ohk51"]
+
+[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://materials/stone.tres" id="1_i4yrt"]
+[ext_resource type="ArrayMesh" uid="uid://bkqlblj8gobi" path="res://blendot_meshes/ColVis-Window_83309ca1f5b6.res" id="2_0oone"]
+[ext_resource type="ArrayMesh" uid="uid://dtfnoks281yr5" path="res://blendot_meshes/ColVis-Window_83309ca1f5b6_4cab8176b4a9.res" id="3_6x7al"]
+[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://materials/floor.tres" id="4_y8ehe"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_0pjpf"]
+size = Vector3(5, 0.5, 16)
+subdivide_width = 5
+subdivide_depth = 10
+
+[node name="BaseBlock" type="Node3D" unique_id=86401172]
+
+[node name="ColVis-Facade" type="MeshInstance3D" parent="." unique_id=170254929]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.00022315979, 0)
+mesh = ExtResource("3_6x7al")
+metadata/blendot_id = "4cab8176b4a9"
+
+[node name="ColVis-Window" type="MeshInstance3D" parent="." unique_id=342792327]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.00022315979, 0)
+material_override = ExtResource("1_i4yrt")
+mesh = ExtResource("2_0oone")
+metadata/blendot_edit_id = "83309ca1f5b6"
+
+[node name="ColVis-Floor" type="MeshInstance3D" parent="." unique_id=1028281159]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.244053, -2.2662659)
+material_override = ExtResource("4_y8ehe")
+mesh = SubResource("BoxMesh_0pjpf")
+metadata/blendot_edit_id = "5ee30daa8bca"
