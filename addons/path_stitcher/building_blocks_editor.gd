@@ -134,19 +134,9 @@ func _section_box(si: int) -> Control:
 	mid_label.custom_minimum_size.x = _px(HANDLE_WIDTH)
 	mid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid_label.tooltip_text = ("The blocks between First and Last, drawn at random; each row's number is its weight."
-			if random else "The blocks between First and Last, repeated in this order, to fill the section (Fill) or a set number of times (Times).")
+			if random else "The blocks between First and Last, repeated in this order to fill the section.")
 	mid_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	mid.add_child(mid_label)
-	if not random:
-		var kind := _option(["Fill", "Times"], 0 if seq.repeat_count == 0 else 1)
-		kind.tooltip_text = "Fill: the blocks repeat to fill the space from the First block to the Last block.\nTimes: the blocks are placed a set number of times, unstretched; any gap stays."
-		kind.item_selected.connect(_on_repeat_kind.bind(seq))
-		mid.add_child(kind)
-		var times := _spin(maxi(seq.repeat_count, 1), 1.0, 1000.0, 1.0, " ×")
-		times.editable = seq.repeat_count > 0
-		times.tooltip_text = "How many times the blocks are placed (used when set to Times)."
-		times.value_changed.connect(_on_int.bind(seq, &"repeat_count", "Set repeat count"))
-		mid.add_child(times)
 	var mid_rule := HSeparator.new()
 	mid_rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid_rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -632,11 +622,6 @@ func _on_entry_scene(res: Resource, entry: Object) -> void:
 func _on_slot_scene(scene: PackedScene, seq: PathSection) -> void:
 	if scene:
 		_add_blocks_from([scene], seq)
-
-
-func _on_repeat_kind(index: int, seq: PathSection) -> void:
-	_apply(seq, &"repeat_count", 0 if index == 0 else 1, "Set repeat")
-
 
 
 func _on_anchor(on: bool, seq: PathSection) -> void:

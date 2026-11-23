@@ -455,8 +455,6 @@ func _layout(length: float) -> Array:
 ## One section's modules between a and b.
 func _layout_section(seq: PathSection, a: float, b: float, markers: Array) -> Array:
 	var gen := _Gen.new(seq, self)
-	# Numbered repeat: the block sequence is placed that many times and the last block simply follows it.
-	var repeating := seq.is_continuous()
 	var lead: Array = []
 	var trail: Array = []
 	var fixed: Array = []
@@ -467,9 +465,8 @@ func _layout_section(seq: PathSection, a: float, b: float, markers: Array) -> Ar
 	if seq.end and _module(seq.end) >= 0:
 		var e := _module(seq.end)
 		var e_len: float = _mods[e].length
-		if repeating:
-			b += _mods[e].px # the last block's px moves where it (and so the pattern) ends
-		if seq.anchor_end and repeating:
+		b += _mods[e].px # the last block's px moves where it (and so the pattern) ends
+		if seq.anchor_end:
 			# The last blocks sit unstretched against the section end.
 			var pos := b
 			for _i in seq.end_count:
@@ -506,7 +503,7 @@ func _layout_section(seq: PathSection, a: float, b: float, markers: Array) -> Ar
 		items = items + fixed
 
 	# The first and last block's px already moved the section's start and end.
-	if seq.end and repeating:
+	if seq.end:
 		for k in range(maxi(items.size() - seq.end_count, 0), items.size()):
 			items[k]["no_px"] = true
 	if seq.start:
@@ -530,22 +527,7 @@ func _fill(seq: PathSection, a: float, b: float, lead: Array, trail: Array, gen:
 
 	var fit := seq.fit
 	var mids: Array = []
-	var repeating := seq.is_continuous()
-	if not repeating:
-		fit = PathSection.Fit.NONE # a single pass is never stretched
-		if not gen.is_empty() and not gen.placed_once:
-			gen.placed_once = true
-			var wanted: int = gen.flat.size() * seq.repeat_count
-			var used := fixed_len
-			for k in wanted:
-				var m: int = gen.flat[k % gen.flat.size()]
-				var m_len: float = _mods[m].length
-				if used + m_len > span + 0.001:
-					_warnings.append("%d block(s) of the repeat do not fit between the first and last block and were left out." % (wanted - mids.size()))
-					break
-				mids.append(m)
-				used += m_len
-	if repeating and not gen.is_empty():
+	if not gen.is_empty():
 		var probe := gen.copy()
 		var total := fixed_len
 		var overflow := -1
@@ -587,8 +569,7 @@ func _fill(seq: PathSection, a: float, b: float, lead: Array, trail: Array, gen:
 		var trail_len := 0.0
 		for m in trail:
 			trail_len += _mods[m].length
-		if repeating:
-			pos = b - trail_len # otherwise the last block just follows the sequence
+		pos = b - trail_len
 		for m in trail:
 			var l: float = _mods[m].length
 			items.append({"mod": m, "s0": pos, "s1": pos + l})
@@ -1193,7 +1174,6 @@ class _Gen:
 	var max_repeat := 0
 	var last := -1
 	var run := 0
-	var placed_once := false # Numbered repeat: the passes have been placed
 
 	func _init(seq: PathSection = null, host = null) -> void:
 		if seq == null:

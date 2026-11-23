@@ -70,7 +70,7 @@ enum Fit { STRETCH, TRUNCATE_PATTERN, FINISH_CYCLE, NONE }
 		emit_changed()
 
 ## The blocks: in PATTERN mode `count` copies of each in a row, repeated to
-## fill the path; in RANDOM mode `count` is the block's weight.
+## fill the section; in RANDOM mode `count` is the block's weight.
 @export var pattern: Array[PathPatternEntry] = []:
 	set(value):
 		for e in pattern:
@@ -79,26 +79,6 @@ enum Fit { STRETCH, TRUNCATE_PATTERN, FINISH_CYCLE, NONE }
 		for e in pattern:
 			_watch(e)
 		emit_changed()
-
-## How many times the block sequence is placed between the first and last
-## block. 0 = continuous: it repeats to fill the space (and is stretched to fit).
-## A number places that many passes, never stretched; any gap stays. Random
-## sequences always fill.
-@export_range(0, 1000, 1, "or_greater") var repeat_count := 0:
-	set(value):
-		repeat_count = maxi(value, 0)
-		emit_changed()
-
-## Old scenes only: "repeat off" meant one pass.
-@export_storage var repeat_pattern := true:
-	set(value):
-		repeat_pattern = value
-		if not value:
-			repeat_count = 1
-
-## True when the middle blocks fill the space between the first and last block.
-func is_continuous() -> bool:
-	return repeat_count == 0 or mode == Mode.RANDOM
 
 ## Start the pattern this many blocks in, so neighbouring paths can continue
 ## each other's rhythm.

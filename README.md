@@ -14,7 +14,7 @@ Use it for street and tower architecture, roads, walls, fences, bridges, tracks,
 - **Fine-grained control in the Inspector.** A BUILDING BLOCKS section on the node lets you set:
   - sections: several stretches along one path, laid end to end, each with its own length and its own pattern
   - in each section, a different first block and last block, each with a count
-  - a reorderable pattern of blocks with per-block counts, repeated continuously, repeated a set number of times, or picked at random
+  - a reorderable pattern of blocks with per-block counts, repeated to fill the section, or picked at random
   - per-block length, overlap, stretch, and offsets along, above and beside the path
   - how the blocks fit the path length (stretch, truncate, finish the cycle, or none)
   - markers: special blocks at fixed path distances
@@ -127,7 +127,6 @@ A block is only rotated onto the path, never mirrored, so it looks exactly as yo
 | `start`, `end` (+ counts) | Optional first and last block. |
 | `mode` | **Pattern** repeats the rows in order. **Random** draws from them, using each row's count as its weight. |
 | `pattern` | Rows of block and count, for example 4 of `Block1`, then 2 of `Block2`. |
-| `repeat_count` | 0 repeats the pattern continuously to fill the section. A number places the pattern that many times, unstretched. |
 | `fit` | How blocks fill the path: **Stretch** (all blocks scaled slightly), **Truncate pattern** (whole blocks, then stretch to close the gap), **Finish cycle** (whole pattern cycles only), **None** (no stretch; a gap may show). |
 
 ### PathModule
