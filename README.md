@@ -2,9 +2,11 @@
 
 Distribute modular "building blocks" along a path with seamless beauty. Envelope distortion ensures the leading and trailing edge of each block meet perfectly. Blocks are wedged and sheared to give a true organic feel.
 
-Use it for street and tower architecture, roads, walls, fences, bridges, tracks, railings, etc.
+Use it for street and tower architecture, roads, walls, fences, bridges, tracks, railings, and randomized streets of buildings.
 
-![A spiral tower built by PathStitcher from two repeating blocks](docs/images/tower_demo.png)
+**[Watch the walkthrough](https://rufussed.github.io/path_stitcher/presentation/)**: a short animated slideshow that builds a Tower of Babel step by step in the editor.
+
+![A Tower of Babel and a city wall, each built by one PathStitcher from repeating blocks](https://rufussed.github.io/path_stitcher/presentation/screenshots/thumbnail.png)
 
 ## Why PathStitcher
 
@@ -14,7 +16,7 @@ Use it for street and tower architecture, roads, walls, fences, bridges, tracks,
 - **Fine-grained control in the Inspector.** A BUILDING BLOCKS section on the node lets you set:
   - sections: several stretches along one path, laid end to end, each with its own length and its own pattern
   - in each section, a different first block and last block, each with a count
-  - a reorderable pattern of blocks with per-block counts, repeated to fill the section, or picked at random
+  - a reorderable pattern of blocks with per-block counts, repeated to fill the section, or **randomized** (weighted, seeded, with a cap on repeats)
   - per-block length, overlap, stretch, and offsets along, above and beside the path
   - how the blocks fit the path length (stretch, truncate, finish the cycle, or none)
   - markers: special blocks at fixed path distances
@@ -41,30 +43,32 @@ The trade-off is that an envelope blends in a straight line between its two join
 
 ## Install
 
-1. Copy `addons/path_stitcher` into your project's `addons/` folder (or install from the Asset Library).
+1. Install from the Godot Asset Store, or copy `addons/path_stitcher` into your project's `addons/` folder.
 2. Open **Project > Project Settings > Plugins** and enable **PathStitcher**.
 
 ## Quick start
 
 1. Add a `Path3D` and draw a curve.
 2. Add a `PathStitcher` as a **child** of the path. It follows its parent by default.
-3. In the Inspector, open **BUILDING BLOCKS** and pick a block scene (a `.blend`, `.glb` or `.tscn`) for the first section.
+3. In the Inspector's **BUILDING BLOCKS** panel, click **Add section**, then drag a block scene (a `.blend`, `.glb` or `.tscn`) from the FileSystem dock into **Repeat**. Optionally add a **First** and **Last** block.
 4. The blocks appear along the path and rebuild whenever you edit the curve or any setting.
+
+Want a spiral or a circle instead of drawing points? Use a `PathSpiral` or `PathCircle` as the path (see [Nodes and resources](#nodes-and-resources)).
 
 Output is generated under an unowned `_Generated` child. It is rebuilt on load and never saved into your scene.
 
 ## Demo
 
-This repository is a small Godot project. Open `demo/project.godot` in Godot, open `tower.tscn` and run it (F6) to see a Tower of Babel built by one `PathStitcher` on one spiral `Path3D`. The spiral makes three and a half turns, tightening from 32 m to 14 m radius while rising 16 m per turn, so every block is wedged and sheared differently.
+This repository includes a small Godot project in `demo/`. Open `demo/project.godot` in Godot, then open a scene and run it (F6):
 
-The building blocks (in `demo/blocks/`) are each 5 m joint to joint, with no overlap:
+- **`presentation_tower.tscn`** is the scene built in the [walkthrough](https://rufussed.github.io/path_stitcher/presentation/). A `PathSpiral` makes 7 turns, tapering from 44 m to 12 m radius and rising 16 m per turn, sunk 16.5 m so the tower rises out of the ground. Its `PathStitcher` places 53 `base_block`s first, then repeats `tower_block`, and caps the top with 2 `base_block`s. A `PathCircle` of radius 95 m carries a second `PathStitcher` that repeats `window_block` into a city wall.
+- **`tower.tscn`** is a larger tower with extra rings around it.
 
-- **First block:** `base_block`, a solid 16 m block, placed 12 times to form the base (and once more as the last block).
-- **Block sequence:** `tower_block`, repeated. Its lower storey is an open arcade (pillars with arches running both along and across the path), and its upper storey is a solid wall with a round-headed window. Each turn of the spiral stands on top of the one below.
+The building blocks are in `demo/blocks/`. Each is 5 m joint to joint, with no overlap. `tower_block` has an open arcade below (pillars with arches running along and across the path) and a wall with round-headed windows above, so each turn of the spiral stands on the one below.
 
-The spiral is a `PathSpiral` node. To reshape it, select it and change **Turns**, **Start Radius**, **End Radius** and **Rise Per Turn** in the Inspector (**Direction** chooses clockwise or anticlockwise winding); the tower follows live. Set Rise Per Turn to the block height (16 m) so each turn rests on the one below. Turn on **Snap Values** to round the radii and rise to a step you choose (default 0.5 m) and the turns to quarter turns; leave it off for free values down to 0.01.
+To reshape a spiral, select the `PathSpiral` and change **Turns**, **Start Radius**, **End Radius** and **Rise Per Turn** in the Inspector (**Direction** chooses clockwise or anticlockwise winding); the tower follows live. Set Rise Per Turn to the block height (16 m) so each turn rests on the one below. Turn on **Snap Values** to round the radii and rise to a step you choose (default 0.5 m) and the turns to quarter turns; leave it off for free values down to 0.01.
 
-The demo is not included in the addon zip.
+The demo is not included in the addon download.
 
 ## Many towers
 
@@ -115,6 +119,7 @@ A block is only rotated onto the path, never mirrored, so it looks exactly as yo
 | `start_offset`, `end_offset` | Move where the blocks start and stop along the path. |
 | `flip_side` | Mirror the blocks across the path, so +Z faces the left of travel instead of the right. |
 | `generate_collision` | Build trimesh collision from `Col-` and `ColVis-` meshes. |
+| `collision_prefix`, `visible_collision_prefix` | The name prefixes for collision meshes (`Col-` and `ColVis-` by default). |
 | `chunk_size` | Modules combined per mesh and collision body (Full mode). |
 | Rebuild, Clear | Inspector buttons. |
 
@@ -124,9 +129,12 @@ A block is only rotated onto the path, never mirrored, so it looks exactly as yo
 | --- | --- |
 | `title` | An optional name shown in the Inspector. |
 | `length` | How far along the path the section runs. 0 shares whatever the other sections leave over, so give the last section 0 to fill the rest. |
-| `start`, `end` (+ counts) | Optional first and last block. |
+| `start`, `end` (+ counts) | Optional first and last block, each repeated by its count. |
+| `anchor_end` | Place the last block exactly at the section end, unstretched; only the blocks before it are fitted. |
 | `mode` | **Pattern** repeats the rows in order. **Random** draws from them, using each row's count as its weight. |
-| `pattern` | Rows of block and count, for example 4 of `Block1`, then 2 of `Block2`. |
+| `pattern` | Rows of block and count, for example 4 of `Block1`, then 2 of `Block2`. In Random mode the count is the row's weight. |
+| `pattern_offset` | Start the pattern this many blocks in, so neighbouring paths can continue each other's rhythm. |
+| `random_seed`, `max_repeat` | Random mode: the same seed gives the same layout on every rebuild; `max_repeat` caps runs of the same block (0 = no cap). |
 | `fit` | How blocks fill the path: **Stretch** (all blocks scaled slightly), **Truncate pattern** (whole blocks, then stretch to close the gap), **Finish cycle** (whole pattern cycles only), **None** (no stretch; a gap may show). |
 
 ### PathModule
@@ -151,8 +159,8 @@ Offsets use path coordinates: `px` is distance along the path (forward is the di
 
 ## Contributing
 
-The addon is everything under `addons/path_stitcher/`. The Godot demo project is in `demo/`, where `demo/addons/path_stitcher` is a symlink to the addon. See `docs/PathStitcher_Spec.md` for the full design notes.
+The addon is everything under `addons/path_stitcher/`. The Godot demo project is in `demo/`, where `demo/addons/path_stitcher` is a symlink to the addon (on Windows, enable symlinks in git before cloning). The demo also links two of the author's development plugins, Blendot and GodotLiveMCP; if they are missing, Godot reports them on opening, and you can turn them off in **Project Settings > Plugins**. The walkthrough slideshow lives in `docs/presentation/`. See `docs/PathStitcher_Spec.md` for the full design notes.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE). Sample meshes and textures in the test project may carry their own licences; they are not included in the addon.
+MIT. See [LICENSE](LICENSE). Sample meshes and textures in the demo project may carry their own licences; they are not included in the addon.
