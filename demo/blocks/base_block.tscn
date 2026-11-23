@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://d1j86ukdprlbg"]
 
-[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://demo/materials/stone.tres" id="1_cjcew"]
-[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://demo/materials/floor.tres" id="2_y7gun"]
+[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://materials/stone.tres" id="1_cjcew"]
+[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://materials/floor.tres" id="2_y7gun"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_y7gun"]
 size = Vector3(5, 16, 11)

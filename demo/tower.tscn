@@ -2,12 +2,12 @@
 
 [ext_resource type="Script" uid="uid://bs50f1unm5ros" path="res://addons/path_stitcher/path_spiral.gd" id="1_iwla6"]
 [ext_resource type="Script" uid="uid://lbd21tfxqko" path="res://addons/path_stitcher/path_stitcher.gd" id="2_yh44g"]
-[ext_resource type="PackedScene" uid="uid://d1j86ukdprlbg" path="res://demo/blocks/base_block.tscn" id="3_nyvao"]
+[ext_resource type="PackedScene" uid="uid://d1j86ukdprlbg" path="res://blocks/base_block.tscn" id="3_nyvao"]
 [ext_resource type="Script" uid="uid://dqle5cbhie10c" path="res://addons/path_stitcher/sequence/path_module.gd" id="4_d03u5"]
 [ext_resource type="Script" uid="uid://c5k20uy4dstpd" path="res://addons/path_stitcher/sequence/path_marker_entry.gd" id="5_kvyee"]
 [ext_resource type="Script" uid="uid://fnjnata0erps" path="res://addons/path_stitcher/sequence/path_pattern_entry.gd" id="6_o6rmy"]
-[ext_resource type="PackedScene" uid="uid://de0h0we6yxjju" path="res://demo/blocks/window_block.tscn" id="7_sv07r"]
-[ext_resource type="PackedScene" uid="uid://b4depkqf8dyjo" path="res://demo/blocks/tower_block.tscn" id="8_hilxi"]
+[ext_resource type="PackedScene" uid="uid://de0h0we6yxjju" path="res://blocks/window_block.tscn" id="7_sv07r"]
+[ext_resource type="PackedScene" uid="uid://b4depkqf8dyjo" path="res://blocks/tower_block.tscn" id="8_hilxi"]
 [ext_resource type="Script" uid="uid://bhfotg0hs6k15" path="res://addons/path_stitcher/sequence/path_section.gd" id="9_80afm"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v6cde"]

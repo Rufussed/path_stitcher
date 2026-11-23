@@ -18,7 +18,7 @@ Yes. `PathStitcher` has `class_name PathStitcher` and `extends Node3D`, so it al
 - **plugin.cfg**: renamed to "PathStitcher", version 1.0.0, whole-addon description.
 - **Release zip** holds only the addon: `.gitattributes` marks everything else `export-ignore`.
 - **README** at the root with a screenshot, install, quick start, efficiency notes and property reference.
-- **Demo project**: the repo root is now a small Godot project with `demo/tower_demo.tscn` (a simplified Tower of Babel); SkateOrDie moved to its own repo.
+- **Demo project**: the `demo/` folder is a small Godot project with `tower.tscn` (a simplified Tower of Babel); SkateOrDie moved to its own repo.
 - **Clean-project fixes**: the addon referenced SkateOrDie's `GameParams` (in `path_axes_follower.gd`); removed. Blocks made of PrimitiveMeshes failed; fixed. Blocks with single-sided materials rendered inside out (winding was reversed only with Flip Side, the wrong way round); fixed.
 
 - **Clean-project test** (Godot 4.7.2): `git archive` of HEAD extracted into an empty project, plus a throwaway editor plugin that ran 33 checks, all passing: plugin enables, disables and re-enables; all eight classes register; Full and Linear builds work with and without Flip Side (triangle winding checked against a native BoxMesh); `ColVis-` collision is generated; a block with no material still builds (CPU fallback); the built output is not saved in the `.tscn`, and the scene rebuilds on open; the BUILDING BLOCKS inspector section appears; undo and redo of a property work. The addon alone opens and quits with no editor errors.

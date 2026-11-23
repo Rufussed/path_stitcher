@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://de0h0we6yxjju"]
 
-[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://demo/materials/stone.tres" id="1_aevhm"]
-[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://demo/materials/floor.tres" id="2_2s4rt"]
+[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://materials/stone.tres" id="1_aevhm"]
+[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://materials/floor.tres" id="2_2s4rt"]
 [ext_resource type="ArrayMesh" uid="uid://bkqlblj8gobi" path="res://blendot_meshes/ColVis-Window_83309ca1f5b6.res" id="2_35l5v"]
 [ext_resource type="ArrayMesh" uid="uid://dtfnoks281yr5" path="res://blendot_meshes/ColVis-Window_83309ca1f5b6_4cab8176b4a9.res" id="3_wm3ce"]
 

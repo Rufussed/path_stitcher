@@ -16,7 +16,7 @@ First public release. Tested with Godot 4.7.2 on Linux.
 - `PathCircle`: a `Path3D` that builds a flat circle from a single radius setting.
 - `PathGroundDraper`: drapes a path onto physics collision and banks it to the ground.
 - `PathAxesFollower`: supplies forward and right movement axes from the nearest path.
-- MIT licence, README and a demo project (`demo/tower_demo.tscn`, a Tower of Babel built from two blocks).
+- MIT licence, README and a demo project (`demo/tower.tscn`, a Tower of Babel built from two blocks).
 
 ### Fixed (during release preparation)
 

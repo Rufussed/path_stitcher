@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://b4depkqf8dyjo"]
 
-[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://demo/materials/floor.tres" id="1_7g87r"]
-[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://demo/materials/stone.tres" id="2_5jqid"]
-[ext_resource type="ArrayMesh" uid="uid://cfn3e4fkufiq2" path="res://demo/meshes/arcade_arch.res" id="3_3yl86"]
+[ext_resource type="Material" uid="uid://dy6rvl7qkd5j1" path="res://materials/floor.tres" id="1_7g87r"]
+[ext_resource type="Material" uid="uid://w7d2xikvqg25" path="res://materials/stone.tres" id="2_5jqid"]
+[ext_resource type="ArrayMesh" uid="uid://cfn3e4fkufiq2" path="res://meshes/arcade_arch.res" id="3_3yl86"]
 [ext_resource type="ArrayMesh" uid="uid://b12272wnh8h43" path="res://blendot_meshes/ColVis-ArchMid_133c1d19e3be.res" id="3_6s335"]
 [ext_resource type="ArrayMesh" uid="uid://drdaxecbjav4m" path="res://blendot_meshes/ColVis-ArchOuter_8634c421776c.res" id="4_3yl86"]
 [ext_resource type="ArrayMesh" uid="uid://cibgydwnqcban" path="res://blendot_meshes/ColVis-Core_078d556db65b.res" id="5_6s335"]

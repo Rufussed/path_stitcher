@@ -1,6 +1,6 @@
 # PathStitcher Spec
 
-Rufus Lane · The PathStitcher tool: deforming and repeating modular meshes along a Curve3D, with an optional path-relative movement system. The demo in this repo is `demo/tower_demo.tscn`. The original test game, SkateOrDie, now lives in its own repo (`~/Work/SkateOrDie`, with `addons/path_stitcher` symlinked to this repo's addon) and is described in its `docs/SkateOrDie_TestCase.md`.
+Rufus Lane · The PathStitcher tool: deforming and repeating modular meshes along a Curve3D, with an optional path-relative movement system. The demo in this repo is `demo/tower.tscn`. The original test game, SkateOrDie, now lives in its own repo (`~/Work/SkateOrDie`, with `addons/path_stitcher` symlinked to this repo's addon) and is described in its `docs/SkateOrDie_TestCase.md`.
 
 ## Purpose and scope
 
